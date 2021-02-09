@@ -460,6 +460,8 @@ namespace PITD
       } // end z
     H5Gclose(h5Current);
     H5Fclose(h5File);
+
+    std::cout << "READ H5 FILE SUCCESS" << std::endl;
   } // end H5Read
 
   

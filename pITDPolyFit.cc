@@ -32,21 +32,6 @@
 using namespace PITD;
 
 
-// A simple struct to hold parameters that are fit
-struct fitParams
-{
-  double a, b, c;
-  fitParams() : a(0.0), b(0.0), c(0.0) {} // constructor
-  
-  double func(bool reality, double ioffe) // return (Re/Im) polynomial evaluated at ioffe
-  {
-    if ( reality )
-      return 1.0 + a*pow(ioffe, 2) + b*pow(ioffe, 4) + c*pow(ioffe,6); // + d*pow(ioffe,8);
-    if ( !reality )
-      return a*pow(ioffe, 1) + b*pow(ioffe, 3) + c*pow(ioffe, 5); // +d*pow(ioffe, 7);
-  }
-};
-
 struct fitStruc
 {
   bool reality;
@@ -68,7 +53,7 @@ double chi2Func(const gsl_vector * x, void *data)
 
 
   // The current fit parameters
-  fitParams poly;
+  polyFitParams_t poly;
   poly.a = gsl_vector_get(x,0);
   poly.b = gsl_vector_get(x,1);
   poly.c = gsl_vector_get(x,2);
