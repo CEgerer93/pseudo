@@ -235,6 +235,8 @@ namespace PITD
 			       (d->second.moms.begin(),mj),
 			       (( gauge_configs - 1 )/(1.0*gauge_configs))*_i);
 
+		// std::cout << "XXX = " << (( gauge_configs - 1 )/(1.0*gauge_configs))*_i << std::endl;
+
 	      } // end mj
 	  } // end mi
 
@@ -366,8 +368,14 @@ namespace PITD
 	    
 	    // Now grab a handle to the jack group
 	    hid_t h5Jack = H5Gopen(h5Mom, "jack", H5P_DEFAULT);
-	    
-	    for ( int c = 0; c < 2; c++ )
+
+
+	    // A container for this {p,z} data
+	    momVals dumMomVal(gauge_configs);
+
+	
+	    for ( int c = 1; c > -1; c-- )
+	    // for ( int c = 0; c < 2; c++ )
 	      {
 		// Get the component handle
 		hid_t h5Comp = H5Gopen(h5Jack,comp[c], H5P_DEFAULT);
@@ -387,8 +395,8 @@ namespace PITD
 		
 		
 		
-		// A container for this {p,z} data
-		momVals dumMomVal(gauge_configs);
+		// // A container for this {p,z} data
+		// momVals dumMomVal(gauge_configs);
 		dumMomVal.IT = read_buf[0];    // Same Ioffe-time
 		double _avgR(0.0), _avgI(0.0); // Talley the averages
 		
@@ -407,8 +415,14 @@ namespace PITD
 		      }
 		  }
 		// Compute the averge Mat for the {p, z}
-		dumMomVal.matAvg.real( _avgR / gauge_configs );
-		dumMomVal.matAvg.imag( _avgI / gauge_configs );
+		if ( c == 0 )
+		  dumMomVal.matAvg.real( _avgR / gauge_configs );
+		if ( c == 1 )
+		  dumMomVal.matAvg.imag( _avgI / gauge_configs );
+
+
+		H5Gclose(h5Comp);
+	      } // end c jack
 
 		// Associate a std::string with this collection of IT data
 		std::pair<std::string, momVals> amom ( momenta[m], dumMomVal );
@@ -419,11 +433,20 @@ namespace PITD
 		// std::pair<int, zvals> az ( z, dumZ );
 		// // Insert this zvals map into the pitd.disps map
 		// dat->data.disps.insert( az );
+
+		// std::cout << "XXX = " << _avgI / gauge_configs << std::endl;
+		// std::cout << "XXX = " << dumZ.moms["pz1"].mat[0].real() << std::endl;
+
 		
 		// End of parsing jack data from read_buf
+
+
 		
-		H5Gclose(h5Comp);
-	      } // end c jack
+	      // 	H5Gclose(h5Comp);
+	      // } // end c jack
+
+
+
 	    H5Gclose(h5Jack);
 	    H5Gclose(h5Mom);
 
