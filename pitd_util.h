@@ -29,11 +29,7 @@ const double alphaS = 0.303;
 namespace PITD
 {
   // Operator to allow direct multiplication of long double and std::complex<double>
-  std::complex<double> operator*(long double ld, std::complex<double> c)
-    {
-      c.real()*ld; c.imag()*ld;
-      return c;
-    }
+  std::complex<double> operator*(long double ld, std::complex<double> c);
 
   /*
     Structure to hold polynomial fit parameters, and fit function for Re/Im component of pITD
@@ -53,13 +49,9 @@ namespace PITD
   polyFitParams_t(double _a = 0.0, double _b = 0.0, double _c = 0.0) : a(_a), b(_b), c(_c) {}
   };  
   
+
   // Easy printing of polyFitParams_t
-  std::ostream& operator<<(std::ostream& os, const polyFitParams_t& p)
-    {
-      os << p.a << " " << p.b << " " << p.c;
-      return os;
-    }
-  
+  std::ostream& operator<<(std::ostream& os, const polyFitParams_t& p);  
 
 
 
@@ -172,11 +164,11 @@ namespace PITD
   void H5Read(char *inH5, reducedPITD *dat, int gauge_configs, int zmin, int zmax, int pmin, int pmax);
 
   
-  /* /\* */
-  /*   WRITER FOR MAKING NEW H5 FILES - E.G. EVOLVED/MATCHED DATASETS */
-  /* *\/ */
-  /* void H5Write(char *outH5, reducedPITD *ens, std::vector<reducedPITD> &jack, */
-  /* 	       int cfgs, int pmin, int pmax, int zmin, int zmax, int ReIm) {} */
+  /*
+    WRITER FOR MAKING NEW H5 FILES - E.G. EVOLVED/MATCHED DATASETS
+  */
+  void H5Write(char *outH5, reducedPITD *dat, int gauge_configs, int zmin, int zmax, int pmin,
+	       int pmax, std::string dTypeName);
 
   void printMat(gsl_matrix *g);
 

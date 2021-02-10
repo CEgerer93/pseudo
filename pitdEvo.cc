@@ -366,7 +366,7 @@ int main( int argc, char *argv[] )
   for ( auto zi = rawPseudo.data.disps.begin(); zi != rawPseudo.data.disps.end(); ++zi )
     {
       //#pragma omp parallel //for num_threads(16)
-      for ( int ji = 0; ji < gauge_configs; ji ++ )
+      for ( int ji = 0; ji < 1; ji ++ ) // gauge_configs
 	// N.B. Would like to iterate over a std::vec of polyFitParams_t, but then stuck with same component
       // for ( auto ji = zi->second.polyR.begin(); ji != zi->second.polyR.end(); ++ji )
 	{
@@ -377,6 +377,10 @@ int main( int argc, char *argv[] )
 	  for ( auto mi = zi->second.moms.begin(); mi != zi->second.moms.end(); ++mi )
 	    {
 
+	      // Don't forget the Ioffe-time
+	      evoKernel.data.disps[zi->first].moms[mi->first].IT      = mi->second.IT;
+	      matchingKernel.data.disps[zi->first].moms[mi->first].IT = mi->second.IT;
+	      theITD.data.disps[zi->first].moms[mi->first].IT         = mi->second.IT;
 	      if ( zi->first == 0 )
 		{
 		  evoKernel.data.disps[zi->first].moms[mi->first].mat.push_back(0.0);
@@ -426,36 +430,32 @@ int main( int argc, char *argv[] )
     } // end zi
 
 
-#if 0
-
   // Push the outRaw, evoKernel, matchingKernel, theITD to H5 files
-  reducedPITD *dummy = new reducedPITD(gauge_configs,znum,6);
+  // reducedPITD *dummy = new reducedPITD(gauge_configs,znum,6);
 
   std::string outevoh5 =  "b_b0xDA__J0_A1pP." + matelemType + ".EVO.h5";
   std::string outmatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".MATCH.h5";
   std::string outevomatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".EVO-MATCH.h5";
-
   char *evoKernelH5 = &outevoh5[0];
   char *matchingKernelH5 = &outmatchh5[0];
   char *theITDH5 = &outevomatchh5[0];
-#endif
 
 
-//   /*
-//     WRITE EVO,MATCH,EVO-MATCH DATA FOR EACH JACKKNIFE SAMPLE
-//     ERROR IS HARD SET TO -1 PER JACKKNIFE SAMPLE, AS AN ERROR WILL BE DETERMINED
-//     BY ANALYZING ALL JACKKNIFE SAMPLES AND THUS FORMING A COVARIANCE MATRIX
-    
-//     IMAGINARY EVOLUTIONS NOT POSSIBLE YET - POLYFITS ON IMAGINARY DATA NOT DONE (7/1/2020)
 
-//     WILL NOT DETERMINE CENTRAL VALUE/ERROR HERE, SO DUMMY IS PASSED
-//     AS SECOND & THIRD ARGS WHICH WOULD BE ENSEMBLE AVERAGE REDUCEDPITDS
+  std::cout << evoKernel.data.disps.size() << std::endl;
+  for ( int i = 0 ; i < evoKernel.data.disps.size(); i++ )
+      std::cout << evoKernel.data.disps[i].moms.size() << " ";
+  std::cout << "\n" << evoKernel.data.disps[1].moms["pz2"].IT << std::endl;
+  std::cout << evoKernel.data.disps[0].moms["pz1"].mat.size() << std::endl;
 
-//     LIKEWISE dumI IS PASSED FOR IMAGINARY EVOLUTION PER JACKKNIFE SAMPLE
-//   */
-//   H5Write(evoKernelH5,dummy,evoKernel,gauge_configs,6,2,9);
-//   H5Write(matchingKernelH5,dummy,matchingKernel,gauge_configs,6,2,9);
-//   H5Write(theITDH5,dummy,theITD,gauge_configs,6,2,9);
+
+  /*
+    WRITE EVO,MATCH,EVO-MATCH DATA FOR EACH JACKKNIFE SAMPLE
+  */
+  gauge_configs = 1;
+  H5Write(evoKernelH5,&evoKernel,gauge_configs,zmin,zmax,pmin,pmax,"evoKernel");
+  H5Write(matchingKernelH5,&matchingKernel,gauge_configs,zmin,zmax,pmin,pmax,"matchingKernel");
+  H5Write(theITDH5,&theITD,gauge_configs,zmin,zmax,pmin,pmax,"itd");
 
 
 

@@ -9,6 +9,21 @@
 
 namespace PITD
 {
+  // Operator to allow direct multiplication of long double and std::complex<double>
+  std::complex<double> operator*(long double ld, std::complex<double> c)
+  {
+    c.real()*ld; c.imag()*ld;
+    return c;
+  }
+
+  // Easy printing of polyFitParams_t
+  std::ostream& operator<<(std::ostream& os, const polyFitParams_t& p)
+  {
+    os << p.a << " " << p.b << " " << p.c;
+    return os;
+  }
+
+
   // Generic gsl_matrix viewer
   void printMat(gsl_matrix *g)
   {
@@ -465,129 +480,158 @@ namespace PITD
   } // end H5Read
 
   
-  // /*
-  //   WRITER FOR MAKING NEW H5 FILES - E.G. EVOLVED/MATCHED DATASETS
-  // */
-  // void H5Write(char *outH5, reducedPITD *ens, std::vector<reducedPITD> &jack,
-  // 	       int cfgs, int pmin, int pmax, int zmin, int zmax, int ReIm)
-  // {
-  //   /*
-  //     OPEN THE H5 FILE FOR WRITING
-  //   */
-  //   std::cout << "    WRITING H5 FILE = " << outH5 << std::endl;
-  //   hid_t h5File = H5Fcreate(outH5,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
-  //   /*
-  //     Some h5 handles for writing data
-  //   */
-  //   hid_t space, h5Pitd;
-  //   herr_t h5Status;
-  //   // The name of data actually stored in h5 file
-  //   const char * DATASET = "pitd";
+  /*
+    WRITER FOR MAKING NEW H5 FILES - E.G. EVOLVED/MATCHED DATASETS
+  */
+  void H5Write(char *outH5, reducedPITD *dat, int gauge_configs, int zmin, int zmax, int pmin,
+	       int pmax, std::string dTypeName)
+  {
+    /*
+      OPEN THE H5 FILE FOR WRITING
+    */
+    std::cout << "    WRITING H5 FILE = " << outH5 << std::endl;
+    hid_t h5File = H5Fcreate(outH5,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
+    /*
+      Some h5 handles for writing data
+    */
+    hid_t space, h5Pitd;
+    herr_t h5Status;
+    // The name of data actually stored in h5 file
+    const char * DATASET = &dTypeName[0];
 
-  //   // Make the first group entry within root - i.e. the current
-  //   hid_t h5Current = H5Gcreate(h5File, "/b_b0xDA__J0_A1pP", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    // Make the first group entry within root - i.e. the current
+    hid_t h5Current = H5Gcreate(h5File, "/b_b0xDA__J0_A1pP", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
     
-  //   // Other group headings w/in h5 file
-  //   const char * const momenta[] = {"pz0","pz1","pz2","pz3","pz4","pz5","pz6"};
-  //   const char * const comp[] = {"1","2"};
-  //   const char * const zsep[] = {"0","1","2","3","4","5","6","7","8",
-  // 				 "9","10","11","12","13","14","15","16"};
+    // Other group headings w/in h5 file
+    const char * const momenta[] = {"pz0","pz1","pz2","pz3","pz4","pz5","pz6"};
+    const char * const comp[] = {"1","2"};
+    const char * const zsep[] = {"0","1","2","3","4","5","6","7","8",
+  				 "9","10","11","12","13","14","15","16"};
 
 
-  //   // Iterate through each momentum to write
-  //   for ( int m = pmin; m <= pmax; ++m )
-  //     {
-  // 	hid_t h5Mom = H5Gcreate(h5Current, momenta[m], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    // Iterator through displacements to store
+    for ( int z = zmin; z <= zmax; z++ )
+      {
+	zvals dumZ;
+
+	// Iterate through each momentum to store
+	for ( int m = pmin; m <= pmax; m++ )
+	  {
+
+	    hid_t h5Mom;
+	    if ( H5Aexists(h5Current, momenta[m] ) )
+	      {
+		std::cout << "Group exists, opening" << std::endl;
+		h5Mom = H5Gopen1(h5Current, momenta[m]);
+	      }
+	    else
+	      {
+		std::cout << "Group doesn't exist, creating ---- > " << momenta[m] << std::endl;
+		h5Mom = H5Gcreate(h5Current, momenta[m], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	      }
 	
-  // 	// Start by grabbing handle to ensemble group
-  // 	hid_t h5Ensem = H5Gcreate(h5Mom, "ensemble", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	    // // Start by grabbing handle to ensemble group
+	    // hid_t h5Ensem = H5Gcreate(h5Mom, "ensemble", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
-  // 	for ( int c = 0; c < ReIm; c++ )
-  // 	  {
-  // 	    // Get the component handle
-  // 	    hid_t h5Comp = H5Gcreate(h5Ensem,comp[c], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	    // for ( int c = 0; c < ReIm; c++ )
+	    //   {
+	    // 	// Get the component handle
+	    // 	hid_t h5Comp = H5Gcreate(h5Ensem,comp[c], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
-  // 	    for ( int z = zmin; z <= zmax; z++ )
-  // 	      {
-  // 		// Get the zsep handle
-  // 		hid_t h5Zsep = H5Gcreate(h5Comp, zsep[z], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	    // 	for ( int z = zmin; z <= zmax; z++ )
+	    // 	  {
+	    // 	    // Get the zsep handle
+	    // 	    hid_t h5Zsep = H5Gcreate(h5Comp, zsep[z], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
-  // 		// Prepare data for writing
-  // 		double ensemBuff[3];
-  // 		if ( c == 0 )
-  // 		  {
-  // 		    ensemBuff[0] = ens->real.disps[z].ensem.IT[m];
-  // 		    ensemBuff[1] = ens->real.disps[z].ensem.avgM[m];
-  // 		    ensemBuff[2] = ens->real.disps[z].ensem.errM[m];
-  // 		  }
-  // 		if ( c == 1 )
-  // 		  {
-  // 		    ensemBuff[0] = ens->imag.disps[z].ensem.IT[m];
-  // 		    ensemBuff[1] = ens->imag.disps[z].ensem.avgM[m];
-  // 		    ensemBuff[2] = ens->imag.disps[z].ensem.errM[m];
-  // 		  }
+	    // 	    // Prepare data for writing
+	    // 	    double ensemBuff[3];
+	    // 	    if ( c == 0 )
+	    // 	      {
+	    // 		ensemBuff[0] = ens->real.disps[z].ensem.IT[m];
+	    // 		ensemBuff[1] = ens->real.disps[z].ensem.avgM[m];
+	    // 		ensemBuff[2] = ens->real.disps[z].ensem.errM[m];
+	    // 	      }
+	    // 	    if ( c == 1 )
+	    // 	      {
+	    // 		ensemBuff[0] = ens->imag.disps[z].ensem.IT[m];
+	    // 		ensemBuff[1] = ens->imag.disps[z].ensem.avgM[m];
+	    // 		ensemBuff[2] = ens->imag.disps[z].ensem.errM[m];
+	    // 	      }
 
-  // 		// Grab the dataset handle
-  // 		hsize_t dims[2] = {1,3};
-  // 		hid_t DATASPACE = H5Screate_simple(2,dims,NULL);
-  // 		h5Pitd  = H5Dcreate(h5Zsep, DATASET, H5T_IEEE_F64LE, DATASPACE,
-  // 				    H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  // 		// Push data to file
-  // 		h5Status = H5Dwrite(h5Pitd, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, ensemBuff);
+	    // 	    // Grab the dataset handle
+	    // 	    hsize_t dims[2] = {1,3};
+	    // 	    hid_t DATASPACE = H5Screate_simple(2,dims,NULL);
+	    // 	    h5Pitd  = H5Dcreate(h5Zsep, DATASET, H5T_IEEE_F64LE, DATASPACE,
+	    // 				H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	    // 	    // Push data to file
+	    // 	    h5Status = H5Dwrite(h5Pitd, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, ensemBuff);
 
-  // 	      } // end z
-  // 	    H5Gclose(h5Comp);
-  // 	  } // end c
-  // 	H5Gclose(h5Ensem); // Finished parsing the ensemble groups
+	    // 	  } // end z
+	    // 	H5Gclose(h5Comp);
+	    //   } // end c
+	    // H5Gclose(h5Ensem); // Finished parsing the ensemble groups
 
-  // 	// Now grab a handle to the jack group
-  // 	hid_t h5Jack = H5Gcreate(h5Mom, "jack", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-
-  // 	for ( int c = 0; c < ReIm; c++ )
-  // 	  {
-  // 	    // Get the component handle
-  // 	    hid_t h5Comp = H5Gcreate(h5Jack,comp[c], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	    // Now grab a handle to the jack group
+	    hid_t h5Jack;
+	    if ( H5Aexists(h5Mom, "jack") )
+	      {
+		std::cout << "jack exists, opening" << std::endl;
+		h5Jack = H5Gopen1(h5Mom, "jack");
+	      }
+	    else
+	      {
+		std::cout << "jack doesn't exist, creating" << std::endl;
+		h5Jack = H5Gcreate(h5Mom, "jack", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	      }
 	    
-  // 	    for ( int z = zmin; z <= zmax; z++ )
-  // 	      {
-  // 		// Get the zsep handle
-  // 		hid_t h5Zsep = H5Gcreate(h5Comp, zsep[z], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
-  // 		// Prepare buffer for writing
-  // 		double jackBuff[cfgs*3];
-  // 		for ( int J = 0; J < cfgs; J++ )
-  // 		  {
-  // 		    if ( c == 0 )
-  // 		      {
-  // 			jackBuff[3*J]=jack[J].real.disps[z].ensem.IT[m];
-  // 			jackBuff[1+3*J]=jack[J].real.disps[z].ensem.avgM[m];
-  // 			jackBuff[2+3*J]=jack[J].real.disps[z].ensem.errM[m];
-  // 		      }
-  // 		    if ( c == 1 )
-  // 		      {
-  // 			jackBuff[3*J]=jack[J].imag.disps[z].ensem.IT[m];
-  // 			jackBuff[1+3*J]=jack[J].imag.disps[z].ensem.avgM[m];
-  // 			jackBuff[2+3*J]=jack[J].imag.disps[z].ensem.errM[m];
-  // 		      }
-  // 		  } // end J
+	    // This set of {p,z} data
+	    momVals dumMomVal = dat->data.disps[z].moms[momenta[m]];
+	    std::cout << "Got to dumMomVal" << std::endl;
 
-  // 		// Grab the dataset handle
-  // 		hsize_t dims[2] = {cfgs,3};
-  // 		hid_t DATASPACE = H5Screate_simple(2,dims,NULL);
-  // 		hid_t dset_id = H5Dcreate(h5Zsep, "pitd", H5T_IEEE_F64LE, DATASPACE,
-  // 					  H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  // 		// Push data to file
-  // 		herr_t status = H5Dwrite(dset_id, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, jackBuff);
+	    for ( int c = 1; c > -1; c-- )
+	      {
+		// Get the component handle
+		hid_t h5Comp = H5Gcreate(h5Jack,comp[c], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+		std::cout << "Got to comp" << std::endl;
 
-  // 	      } // end z jack
-  // 	    H5Gclose(h5Comp);
-  // 	  } // end c jack
-  // 	H5Gclose(h5Jack);
-  // 	H5Gclose(h5Mom);
-  //     } // end mom
-  //   H5Gclose(h5Current);
-  //   H5Fclose(h5File);
-  // } // end H5Write
+  		// Get the zsep handle
+  		hid_t h5Zsep = H5Gcreate(h5Comp, zsep[z], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+		std::cout << "Got to zsep" << std::endl;
+
+  		// Prepare buffer for writing
+  		double jackBuff[1+gauge_configs];
+		jackBuff[0] = dumMomVal.IT;
+  		for ( int J = 0; J < gauge_configs; J++ )
+  		  {
+  		    if ( c == 0 )
+		      jackBuff[J+1]=dumMomVal.mat[J].real();
+  		    if ( c == 1 )
+		      jackBuff[J+1]=dumMomVal.mat[J].imag();
+  		  } // end J
+
+  		// Grab the dataset handle
+  		hsize_t dims[2] = {1,gauge_configs};
+  		hid_t DATASPACE = H5Screate_simple(2,dims,NULL);
+  		hid_t dset_id = H5Dcreate(h5Zsep, DATASET, H5T_IEEE_F64LE, DATASPACE,
+  					  H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  		// Push data to file
+  		herr_t status = H5Dwrite(dset_id, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, jackBuff);
+
+
+		H5Gclose(h5Comp);
+	      } // end c jack
+
+	    H5Gclose(h5Jack);
+	    H5Gclose(h5Mom);
+	  } // end mom
+
+      } // end z
+    H5Gclose(h5Current);
+    H5Fclose(h5File);
+
+    std::cout << "WRITE H5 FILE SUCCESS" << std::endl;
+  } // end H5Write
 
 }
 
