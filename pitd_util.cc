@@ -505,8 +505,10 @@ namespace PITD
     // Other group headings w/in h5 file
     const char * const momenta[] = {"pz0","pz1","pz2","pz3","pz4","pz5","pz6"};
     const char * const comp[] = {"1","2"};
-    const char * const zsep[] = {"0","1","2","3","4","5","6","7","8",
-  				 "9","10","11","12","13","14","15","16"};
+    const char * const zsep[] = {"zsep0","zsep1","zsep2","zsep3","zsep4","zsep5","zsep6","zsep7","zsep8",
+  				 "zsep9","zsep10","zsep11","zsep12","zsep13","zsep14","zsep15","zsep16"};
+    // const char * const zsep[] = {"0","1","2","3","4","5","6","7","8",
+    // 				 "9","10","11","12","13","14","15","16"};
 
 
     // Iterator through displacements to store
@@ -514,106 +516,92 @@ namespace PITD
       {
 	zvals dumZ;
 
+	hid_t h5Zsep = H5Gcreate(h5Current, zsep[z], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
 	// Iterate through each momentum to store
 	for ( int m = pmin; m <= pmax; m++ )
 	  {
 
-	    hid_t h5Mom;
-	    if ( H5Aexists(h5Current, momenta[m] ) )
-	      {
-		std::cout << "Group exists, opening" << std::endl;
-		h5Mom = H5Gopen1(h5Current, momenta[m]);
-	      }
-	    else
-	      {
-		std::cout << "Group doesn't exist, creating ---- > " << momenta[m] << std::endl;
-		h5Mom = H5Gcreate(h5Current, momenta[m], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-	      }
-	
-	    // // Start by grabbing handle to ensemble group
-	    // hid_t h5Ensem = H5Gcreate(h5Mom, "ensemble", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-
-	    // for ( int c = 0; c < ReIm; c++ )
+	    hid_t h5Mom = H5Gcreate(h5Zsep, momenta[m], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	    // if ( H5Aexists(h5Current, momenta[m] ) )
 	    //   {
-	    // 	// Get the component handle
-	    // 	hid_t h5Comp = H5Gcreate(h5Ensem,comp[c], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-
-	    // 	for ( int z = zmin; z <= zmax; z++ )
-	    // 	  {
-	    // 	    // Get the zsep handle
-	    // 	    hid_t h5Zsep = H5Gcreate(h5Comp, zsep[z], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-
-	    // 	    // Prepare data for writing
-	    // 	    double ensemBuff[3];
-	    // 	    if ( c == 0 )
-	    // 	      {
-	    // 		ensemBuff[0] = ens->real.disps[z].ensem.IT[m];
-	    // 		ensemBuff[1] = ens->real.disps[z].ensem.avgM[m];
-	    // 		ensemBuff[2] = ens->real.disps[z].ensem.errM[m];
-	    // 	      }
-	    // 	    if ( c == 1 )
-	    // 	      {
-	    // 		ensemBuff[0] = ens->imag.disps[z].ensem.IT[m];
-	    // 		ensemBuff[1] = ens->imag.disps[z].ensem.avgM[m];
-	    // 		ensemBuff[2] = ens->imag.disps[z].ensem.errM[m];
-	    // 	      }
-
-	    // 	    // Grab the dataset handle
-	    // 	    hsize_t dims[2] = {1,3};
-	    // 	    hid_t DATASPACE = H5Screate_simple(2,dims,NULL);
-	    // 	    h5Pitd  = H5Dcreate(h5Zsep, DATASET, H5T_IEEE_F64LE, DATASPACE,
-	    // 				H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-	    // 	    // Push data to file
-	    // 	    h5Status = H5Dwrite(h5Pitd, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, ensemBuff);
-
-	    // 	  } // end z
-	    // 	H5Gclose(h5Comp);
-	    //   } // end c
-	    // H5Gclose(h5Ensem); // Finished parsing the ensemble groups
+	    // 	std::cout << "Group exists, opening" << std::endl;
+	    // 	h5Mom = H5Gopen1(h5Current, momenta[m]);
+	    //   }
+	    // else
+	    //   {
+	    // 	std::cout << "Group doesn't exist, creating ---- > " << momenta[m] << std::endl;
+	    // 	h5Mom = H5Gcreate(h5Current, momenta[m], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	    //   }
+	
 
 	    // Now grab a handle to the jack group
-	    hid_t h5Jack;
-	    if ( H5Aexists(h5Mom, "jack") )
-	      {
-		std::cout << "jack exists, opening" << std::endl;
-		h5Jack = H5Gopen1(h5Mom, "jack");
-	      }
-	    else
-	      {
-		std::cout << "jack doesn't exist, creating" << std::endl;
-		h5Jack = H5Gcreate(h5Mom, "jack", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-	      }
-	    
+	    hid_t h5Jack = H5Gcreate(h5Mom, "jack", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	    // if ( H5Aexists(h5Mom, "jack") )
+	    //   {
+	    // 	std::cout << "jack exists, opening" << std::endl;
+	    // 	h5Jack = H5Gopen1(h5Mom, "jack");
+	    //   }
+	    // else
+	    //   {
+	    // 	std::cout << "jack doesn't exist, creating" << std::endl;
+	    // 	h5Jack = H5Gcreate(h5Mom, "jack", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	    //   }
+
+
 
 	    // This set of {p,z} data
 	    momVals dumMomVal = dat->data.disps[z].moms[momenta[m]];
 	    std::cout << "Got to dumMomVal" << std::endl;
 
-	    for ( int c = 1; c > -1; c-- )
+	    for ( int c = 0; c != 2; c++ )
+	    // for ( int c = 1; c > -1; c-- )
 	      {
 		// Get the component handle
 		hid_t h5Comp = H5Gcreate(h5Jack,comp[c], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-		std::cout << "Got to comp" << std::endl;
+		// if ( H5Aexists(h5Jack, comp[c]) )
+		//   {
+		//     std::cout << "Comp exists, opening" << std::endl;
+		//     h5Comp = H5Gopen1(h5Jack, comp[c]);
+		//   }
+		// else
+		//   {
+		//     std::cout << "Comp doesn't exist, creating" << std::endl;
+		//     H5Gcreate(h5Jack,comp[c], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+		//   }
 
-  		// Get the zsep handle
-  		hid_t h5Zsep = H5Gcreate(h5Comp, zsep[z], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-		std::cout << "Got to zsep" << std::endl;
+
+  		// // Get the zsep handle
+  		// hid_t h5Zsep;
+		// if ( H5Aexists(h5Comp, zsep[z]) )
+		//   {
+		//     std::cout << "zsep exists, opening" << std::endl;
+		//     h5Zsep = H5Gopen1(h5Comp, zsep[z]);
+		//   }
+		// else
+		//   {
+		//     std::cout << "zsep doesn't exist, creating" << std::endl;
+		//     H5Gcreate(h5Comp, zsep[z], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+		//   }
+
 
   		// Prepare buffer for writing
-  		double jackBuff[1+gauge_configs];
-		jackBuff[0] = dumMomVal.IT;
+  		double jackBuff[2*gauge_configs];
+		// jackBuff[0] = dumMomVal.IT;
   		for ( int J = 0; J < gauge_configs; J++ )
   		  {
+		    jackBuff[2*J] = dumMomVal.IT;
   		    if ( c == 0 )
-		      jackBuff[J+1]=dumMomVal.mat[J].real();
+		      jackBuff[2*J+1]=dumMomVal.mat[J].real();
   		    if ( c == 1 )
-		      jackBuff[J+1]=dumMomVal.mat[J].imag();
+		      jackBuff[2*J+1]=dumMomVal.mat[J].imag();
   		  } // end J
 
   		// Grab the dataset handle
-  		hsize_t dims[2] = {1,gauge_configs};
+  		hsize_t dims[2] = {gauge_configs,2};
+		std::cout << "BEFORE DATASPACE SET" << std::endl;
   		hid_t DATASPACE = H5Screate_simple(2,dims,NULL);
-  		hid_t dset_id = H5Dcreate(h5Zsep, DATASET, H5T_IEEE_F64LE, DATASPACE,
+  		hid_t dset_id = H5Dcreate(h5Comp, DATASET, H5T_IEEE_F64LE, DATASPACE,
   					  H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   		// Push data to file
   		herr_t status = H5Dwrite(dset_id, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, jackBuff);
@@ -626,6 +614,7 @@ namespace PITD
 	    H5Gclose(h5Mom);
 	  } // end mom
 
+	H5Gclose(h5Zsep);
       } // end z
     H5Gclose(h5Current);
     H5Fclose(h5File);
