@@ -28,6 +28,13 @@ const double alphaS = 0.303;
 
 namespace PITD
 {
+  // Operator to allow direct multiplication of long double and std::complex<double>
+  std::complex<double> operator*(long double ld, std::complex<double> c)
+    {
+      c.real()*ld; c.imag()*ld;
+      return c;
+    }
+
   /*
     Structure to hold polynomial fit parameters, and fit function for Re/Im component of pITD
   */

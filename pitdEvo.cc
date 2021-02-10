@@ -14,26 +14,7 @@
 /*
   Grab headers for gsl function calls
 */
-#include <gsl/gsl_sf_gamma.h> // Evaluaton of Gamma/Beta functions
-#include <gsl/gsl_rng.h> // Random numbers
 #include <gsl/gsl_integration.h> // Numerical integration
-#include <gsl/gsl_multimin.h> // multidimensional minimization
-#include <gsl/gsl_vector.h> // allocating/accessing gsl_vectors for passing params to minimizer
-#include <gsl/gsl_matrix.h> // matrix routines for inversion of data covariance
-#include <gsl/gsl_permutation.h> // permutation header for matrix inversions
-#include <gsl/gsl_linalg.h> // linear algebra
-#include <gsl/gsl_sf_hyperg.h> // hypergeometric fun
-#include <gsl/gsl_sf_expint.h>
-#include <gsl/gsl_blas.h>
-#include <gsl/gsl_multifit_nlinear.h>
-
-/*
-  Grab arb headers for generalized hypergeometric function evaluation
-*/
-// #include "arb.h"
-// #include "arb_hypgeom.h"
-// #include "acb.h"
-// #include "acb_hypgeom.h"
 
 /*
   Headers for threading
@@ -46,15 +27,6 @@
 #include "pitd_util.h"
 
 using namespace PITD;
-
-
-// // SU(3) invariant
-// const double Cf = 4.0/3.0;
-// const double hbarc = 0.1973269804; // GeV * fm
-// const double aLat = 0.094; // fm
-// const double muRenorm = 2.0; // GeV
-// const double MU = (aLat*muRenorm)/hbarc; // fm^-1
-// const double alphaS = 0.303;
 
 
 // Structure to hold all needed parameters to perform convolution of DGLAP kernel and polyfit of reduced pITD
@@ -238,17 +210,8 @@ double convolutionMATCH(polyFitParams_t &poly, double nu, double matelem, int z,
   return result;
 }
 
+
 #if 0
-// Fill outRaw*,outEvo*,outMatch*,outEvoMatch*  std::vector<reducedPITD>
-void fill_reducedPITD(compPITD &c, int z, double IT, double avgM, double errM)
-{
-  // Prepare the raw lattice data for reference
-  c.disps[z].ensem.IT.push_back(IT);
-  c.disps[z].ensem.avgM.push_back(avgM);
-  c.disps[z].ensem.errM.push_back(errM);
-}
-
-
 // Method to determine a ensAvg/err reducedPITD
 // from passed jackknife reducedPITD
 reducedPITD jkReducedPITD(std::vector<reducedPITD> &jkr)
@@ -342,10 +305,6 @@ int main( int argc, char *argv[] )
   ss << argv[8]; ss >> pmax;          ss.clear(); ss.str(std::string());
 
 
-  // reducedPITD *ensem = new reducedPITD(gauge_configs,9,6); // 9zseps, 6moms
-  // std::vector<reducedPITD > jack(gauge_configs,reducedPITD(gauge_configs-1,9,6));//, new reducedPITD());
-
-
   reducedPITD rawPseudo(gauge_configs);
   /*
     ACCESS FULL DATASET OF FITTED IOFFE-TIME PSEUDO-STRUCTURE FUNCTIONS
@@ -382,10 +341,10 @@ int main( int argc, char *argv[] )
   std::cout << "Done reading polynomial fit results" << std::endl;
   IN.close();
 
-  for ( int J = 0; J < gauge_configs; J++ ) 
-    {
-      std::cout << rawPseudo.data.disps[1].polyR[J] << std::endl;
-    }
+  // for ( int J = 0; J < gauge_configs; J++ ) 
+  //   {
+  //     std::cout << rawPseudo.data.disps[1].polyR[J] << std::endl;
+  //   }
   
 
   // Get the number of unique displacements from read in unevolved data
@@ -406,121 +365,80 @@ int main( int argc, char *argv[] )
 
   for ( auto zi = rawPseudo.data.disps.begin(); zi != rawPseudo.data.disps.end(); ++zi )
     {
-#pragma omp parallel //for num_threads(16)
-      for ( auto ji = zi->second.polyR.begin(); ji != zi->second.polyR.end(); ++ji )
+      //#pragma omp parallel //for num_threads(16)
+      for ( int ji = 0; ji < gauge_configs; ji ++ )
+	// N.B. Would like to iterate over a std::vec of polyFitParams_t, but then stuck with same component
+      // for ( auto ji = zi->second.polyR.begin(); ji != zi->second.polyR.end(); ++ji )
 	{
 	  
-	  auto jkNum = std::distance(zi->second.polyR.begin(),ji);
-	  std::cout << "Evolving Z = " << zi->first << " data for JACK = "
-		    << jkNum << std::endl;
+	  std::cout << "Evolving Z = " << zi->first << " data for JACK = " << ji << std::endl;
 
 	  // Each momentum with same z, receives same evolution/matching
 	  for ( auto mi = zi->second.moms.begin(); mi != zi->second.moms.end(); ++mi )
 	    {
+
+	      if ( zi->first == 0 )
+		{
+		  evoKernel.data.disps[zi->first].moms[mi->first].mat.push_back(0.0);
+                  matchingKernel.data.disps[zi->first].moms[mi->first].mat.push_back(0.0);
+                  theITD.data.disps[zi->first].moms[mi->first].mat.push_back(1.0);
+		}
+	      else
+		{
 	      
-	      // DGLAP: <polyFitParams for this jk> <ioffe time> <mat jk> <zsep> < real --> 0 >
-	      double dglap = convolutionDGLAP(*ji, mi->second.IT, mi->second.mat[jkNum].real(),
-					      zi->first, 0);
-	      double match = convolutionMATCH(*ji, mi->second.IT, mi->second.mat[jkNum].real(),
-					      zi->first, 0);
-	      
-
-	      std::cout << "----> DGLAP (RE) = " << dglap << std::endl;
-	      std::cout << "----> MATCH (RE) = " << match << std::endl;
-
-	    } // mi
-	} // ji
-    } // zi
-
-
-    // 	      // Prepare the raw lattice data for reference
-    // 	      fill_reducedPITD(outRaw[J-jack.begin()].real,z,J->real.disps[z].ensem.IT[place],
-    // 			       *it,J->real.disps[z].ensem.errM[place]);
-    // 	      if ( z == 0 )
-    // 		{
-    // 		  fill_reducedPITD(evoKernel[J-jack.begin()].real,z,J->real.disps[z].ensem.IT[place],0.0,-1.0);
-    // 		  // evoKernel[J-jackReal.begin()].disps[z].ensem.errM.push_back(J->disps[z].ensem.errM[place]);
-
-    // 		  fill_reducedPITD(matchingKernel[J-jack.begin()].real,z,J->real.disps[z].ensem.IT[place],0.0,-1.0);
-    // 		  // matchingKernel[J-jackReal.begin()].disps[z].ensem.errM.push_back(J->disps[z].ensem.errM[place]);
-
-    // 		  fill_reducedPITD(theITD[J-jack.begin()].real,z,J->real.disps[z].ensem.IT[place],1.0,-1.0);
-    // 		  // theITD[J-jackReal.begin()].disps[z].ensem.errM.push_back(J->disps[z].ensem.errM[place]);
-    // 		}
-    // 	      else
-    // 		{
-    // 		  // fill_reducedPITD(evoKernel[J-jack.begin()].real,z,J->real.disps[z].ensem.IT[place],
-    // 		  // 		   ((alphaS*Cf)/(2*M_PIl))*dglap,-1);
-    // 		  fill_reducedPITD(evoKernel[J-jack.begin()].real,z,J->real.disps[z].ensem.IT[place],
-    // 				   dglap,-1);
+		  std::complex<double> dglap, match;
+		  // Run over each component of pITD
+		  for ( int comp = 0; comp != 2; comp++ )
+		    {
+		      // DGLAP/MATCH: <polyFitParams for this jk> <ioffe time> <mat jk> <zsep> < real --> 0 >
+		      if ( comp == 0 )
+			{
+			  dglap.real( convolutionDGLAP(zi->second.polyR[ji], mi->second.IT,
+						       mi->second.mat[ji].real(), zi->first, 0) );
+			  match.real( convolutionMATCH(zi->second.polyR[ji], mi->second.IT,
+						       mi->second.mat[ji].real(), zi->first, 0) );
+			}
+		      if ( comp == 1 )
+			{
+			  dglap.imag( convolutionDGLAP(zi->second.polyI[ji], mi->second.IT,
+						       mi->second.mat[ji].imag(), zi->first, 1) );
+			  match.imag( convolutionMATCH(zi->second.polyI[ji], mi->second.IT,
+						       mi->second.mat[ji].imag(), zi->first, 1) );
+			}
+		    } // comp
 		  
-    // 		  // fill_reducedPITD(matchingKernel[J-jack.begin()].real,z,J->real.disps[z].ensem.IT[place],
-    // 		  // 		   ((alphaS*Cf)/(2*M_PIl))*match,-1);
-    // 		  fill_reducedPITD(matchingKernel[J-jack.begin()].real,z,J->real.disps[z].ensem.IT[place],
-    // 				   match,-1);
+		  std::cout << "----> DGLAP = " << dglap << "          ----> MATCH = " << match << std::endl;
+		  
+		  
+		  // // Prepare the raw lattice data for reference
+		  // fill_reducedPITD(outRaw[J-jack.begin()].real,z,J->real.disps[z].ensem.IT[place],
+		  // 		       *it,J->real.disps[z].ensem.errM[place]);
+		  
+		  evoKernel.data.disps[zi->first].moms[mi->first].mat.push_back(dglap);
+		  matchingKernel.data.disps[zi->first].moms[mi->first].mat.push_back(match);
+		  theITD.data.disps[zi->first].
+		    moms[mi->first].mat.push_back( mi->second.mat[ji] + ((alphaS*Cf)/(2*M_PIl))*(dglap+match));
 
-    // 		  fill_reducedPITD(theITD[J-jack.begin()].real,z,J->real.disps[z].ensem.IT[place],
-    // 				   (*it)+((alphaS*Cf)/(2*M_PIl))*(dglap+match),-1);
-    // 		}
-    // 	    } // end [REAL] *it disps
+    		} // if-else
 
-    // 	  // [IMAG] Iterate over all ioffe-times stored for this z
-    //       for ( auto it = J->imag.disps[z].ensem.avgM.begin(); it != J->imag.disps[z].ensem.avgM.end(); ++it )
-    //         {
-    //           auto place = it - J->imag.disps[z].ensem.avgM.begin();
-
-    //           double dglap = convolutionDGLAP(J->imag.disps[z],J->imag.disps[z].ensem.IT[place],(*it),z,1);
-    //           double match = convolutionMATCH(J->imag.disps[z],J->imag.disps[z].ensem.IT[place],(*it),z,1);
-
-    // 	      std::cout << "----> DGLAP (IM) = " << dglap << std::endl;
-    // 	      std::cout << "----> MATCH (IM) = " << match << std::endl;
+	    } // end mi
+	} // end ji
+    } // end zi
 
 
-    //           // Prepare the raw lattice data for reference
-    //           fill_reducedPITD(outRaw[J-jack.begin()].imag,z,J->imag.disps[z].ensem.IT[place],
-    //                            *it,J->imag.disps[z].ensem.errM[place]);
-    //           if ( z == 0 )
-    //             {
-    //               fill_reducedPITD(evoKernel[J-jack.begin()].imag,z,J->imag.disps[z].ensem.IT[place],0.0,-1.0);
-    //               // evoKernel[J-jackReal.begin()].disps[z].ensem.errM.push_back(J->disps[z].ensem.errM[place]);
+#if 0
 
-    //               fill_reducedPITD(matchingKernel[J-jack.begin()].imag,z,J->imag.disps[z].ensem.IT[place],0.0,-1.0);
-    //               // matchingKernel[J-jackReal.begin()].disps[z].ensem.errM.push_back(J->disps[z].ensem.errM[place]);
+  // Push the outRaw, evoKernel, matchingKernel, theITD to H5 files
+  reducedPITD *dummy = new reducedPITD(gauge_configs,znum,6);
 
-    //               fill_reducedPITD(theITD[J-jack.begin()].imag,z,J->imag.disps[z].ensem.IT[place],0.0,-1.0);
-    //               // theITD[J-jackReal.begin()].disps[z].ensem.errM.push_back(J->disps[z].ensem.errM[place]);
-    //             }
-    //           else
-    //             {
-    //               // fill_reducedPITD(evoKernel[J-jack.begin()].real,z,J->imag.disps[z].ensem.IT[place],
-    //               //               ((alphaS*Cf)/(2*M_PIl))*dglap,-1);
-    //               fill_reducedPITD(evoKernel[J-jack.begin()].imag,z,J->imag.disps[z].ensem.IT[place],
-    //                                dglap,-1);
-                  
-    //               // fill_reducedPITD(matchingKernel[J-jack.begin()].real,z,J->imag.disps[z].ensem.IT[place],
-    //               //               ((alphaS*Cf)/(2*M_PIl))*match,-1);
-    //               fill_reducedPITD(matchingKernel[J-jack.begin()].imag,z,J->imag.disps[z].ensem.IT[place],
-    //                                match,-1);
+  std::string outevoh5 =  "b_b0xDA__J0_A1pP." + matelemType + ".EVO.h5";
+  std::string outmatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".MATCH.h5";
+  std::string outevomatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".EVO-MATCH.h5";
 
-    //               fill_reducedPITD(theITD[J-jack.begin()].imag,z,J->imag.disps[z].ensem.IT[place],
-    //                                (*it)+((alphaS*Cf)/(2*M_PIl))*(dglap+match),-1);
-    //             }
-    //         } // end [IMAG] *it disps
-
-    // 	} //end z
-    // } // end *J jackReal
-  
-
-//   // Push the outRaw, evoKernel, matchingKernel, theITD to H5 files
-//   reducedPITD *dummy = new reducedPITD(gauge_configs,znum,6);
-
-//   std::string outevoh5 =  "b_b0xDA__J0_A1pP." + matelemType + ".EVO.h5";
-//   std::string outmatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".MATCH.h5";
-//   std::string outevomatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".EVO-MATCH.h5";
-
-//   char *evoKernelH5 = &outevoh5[0];
-//   char *matchingKernelH5 = &outmatchh5[0];
-//   char *theITDH5 = &outevomatchh5[0];
+  char *evoKernelH5 = &outevoh5[0];
+  char *matchingKernelH5 = &outmatchh5[0];
+  char *theITDH5 = &outevomatchh5[0];
+#endif
 
 
 //   /*
