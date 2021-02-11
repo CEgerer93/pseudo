@@ -328,9 +328,9 @@ namespace PITD
 
     // Other group headings w/in h5 file
     const char * const momenta[] = {"pz0","pz1","pz2","pz3","pz4","pz5","pz6"};
-    const char * const comp[] = {"1","2"};
-    const char * const zsep[] = {"0","1","2","3","4","5","6","7","8",
-				 "9","10","11","12","13","14","15","16"};
+    const char * const comp[] = {"Re", "Im"}; // {"1","2"};
+    const char * const zsep[] = {"zsep0","zsep1","zsep2","zsep3","zsep4","zsep5","zsep6","zsep7","zsep8",
+				 "zsep9","zsep10","zsep11","zsep12","zsep13","zsep14","zsep15","zsep16"};
 
 
     // Iterator through stored displacements
@@ -389,8 +389,8 @@ namespace PITD
 	    momVals dumMomVal(gauge_configs);
 
 	
-	    for ( int c = 1; c > -1; c-- )
-	    // for ( int c = 0; c < 2; c++ )
+	    // for ( int c = 1; c > -1; c-- )
+	    for ( int c = 0; c < 2; c++ )
 	      {
 		// Get the component handle
 		hid_t h5Comp = H5Gopen(h5Jack,comp[c], H5P_DEFAULT);
@@ -504,7 +504,7 @@ namespace PITD
     
     // Other group headings w/in h5 file
     const char * const momenta[] = {"pz0","pz1","pz2","pz3","pz4","pz5","pz6"};
-    const char * const comp[] = {"1","2"};
+    const char * const comp[] = {"Re", "Im"}; // {"1","2"};
     const char * const zsep[] = {"zsep0","zsep1","zsep2","zsep3","zsep4","zsep5","zsep6","zsep7","zsep8",
   				 "zsep9","zsep10","zsep11","zsep12","zsep13","zsep14","zsep15","zsep16"};
     // const char * const zsep[] = {"0","1","2","3","4","5","6","7","8",
