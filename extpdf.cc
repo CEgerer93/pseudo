@@ -2,7 +2,7 @@
   --NUMERICALLY INTEGRATE CONVOLUTION OF PERTURBATIVE KERNELS AND PHENO PDFS TO GENERATE
   A IOFFE-TIME PSEUDO-STRUCTURE FUNCTION
   --MINIMIZE DIFFERENCE BETWEEN FIT CURVE AND BOOTSTRAP(OR JACKKNIFE) SAMPLES
- */
+*/
 #include<iostream>
 #include<fstream>
 #include<string>
@@ -17,7 +17,6 @@
 /*
   Grab headers for gsl function calls
 */
-#include <gsl/gsl_sf_gamma.h> // Evaluaton of Gamma/Beta functions
 #include <gsl/gsl_rng.h> // Random numbers
 #include <gsl/gsl_integration.h> // Numerical integration
 #include <gsl/gsl_multimin.h> // multidimensional minimization
@@ -25,22 +24,11 @@
 #include <gsl/gsl_matrix.h> // matrix routines for inversion of data covariance
 #include <gsl/gsl_permutation.h> // permutation header for matrix inversions
 #include <gsl/gsl_linalg.h> // linear algebra
-#include <gsl/gsl_sf_hyperg.h> // hypergeometric fun
-#include <gsl/gsl_sf_expint.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_multifit_nlinear.h>
-#include <gsl/gsl_sf_psi.h> // digamma evalutions
 
 /*
-  Grab arb headers for generalized hypergeometric function evaluation
-*/
-#include "arb.h"
-#include "arb_hypgeom.h"
-#include "acb.h"
-#include "acb_hypgeom.h"
-
-/*
- Headers for threading
+  Headers for threading
 */
 #include<omp.h>
 
@@ -65,192 +53,38 @@ int zmin,zmax,pmin,pmax,Nmom,Nz;
 using namespace PITD;
 
 
-// Parameters describing pheno PDF
-struct pdfParams
+/*
+  Parameters describing pheno PDF fit
+*/
+struct pdfFitParams_t
 {
-#ifndef QPLUS
-  double alpha, beta;
-  // Conditionally allo qplus distribution to be simultanouesly fit
-#elif defined QPLUS
-  double normP,alphaP,betaP;
-#endif
-  // Conditionally allow alphaS to be a fitted parameter at compile time
-#ifdef FITALPHAS
-  double alphaS;
-#endif
+  double norm, alpha, beta, gamma, delta;
 
   // Set barriers
   std::pair<int,int> alphaRestrict = std::make_pair(-1,1);
-  std::pair<int,int> betaRestrict = std::make_pair(0.5,5); // 4
+  std::pair<int,int> betaRestrict = std::make_pair(0.5,5);
+
+  // Default/Parametrized constructor w/ initializer lists
+  // pdfFitParams_t() : norm(1.0), alpha(-0.3), beta(2.5), gamma(0.0), delta(0.0) {}
+  pdfFitParams_t(double _n = 1.0, double _a = -0.3, double _b = 2.5, double _g = 0.0,
+		 double _d = 0.0) : norm(_n), alpha(_a), beta(_b), gamma(_g), delta(_d) {}
 };
 
 // Structure to hold all needed parameters to perform convolution of a trial pdf
 struct convolParams
 {
-  pdfParams p;
+  pdfFitParams_t p;
   double nu;
   int z;
 };
 
-// A structure to hold results for evaluation of a generalized hypergeometric function via Arb
-struct pfq
-{
-  double real, imag;
-};
 
-
-pfq GenHypGeomEval(double val)
-{
-
-  // Convert the val reference into a acb_t struct
-  arb_t zRe; arb_init(zRe); arb_set_d(zRe,0.0);
-  arb_t zIm; arb_init(zIm); arb_set_d(zIm,-1.0*val);
-  // Pack real/imag components into a complex struct
-  acb_t z; acb_init(z);
-  acb_set_arb_arb(z,zRe,zIm);
-  // std::cout << "  Complex argument passed to be passed to hypergeometric function   =   ";
-  // acb_print(z); std::cout << "\n";
-
-  // Free memory for the components
-  arb_clear(zRe); arb_clear(zIm);
-   
-
-  // Will compute a 3F3 order generalized hypergeometric function
-  slong p = 3; slong q = 3;
-  // Precision of result
-  slong prec = 64; // double precision
-
-
-  /*
-    Start constructing vectors for the numerator/denominators of pFq
-  */
-  arb_t aRe, aIm;
-  arb_init(aRe); arb_init(aIm);
-  arb_set_d(aRe,1); arb_set_d(aIm,0);
-  arb_t bRe, bIm;
-  arb_init(bRe); arb_init(bIm);
-  arb_set_d(bRe,2); arb_set_d(bIm,0);
-  
-  acb_t az;  acb_init(az); acb_set_arb_arb(az,aRe,aIm);
-  acb_t bz;  acb_init(bz); acb_set_arb_arb(bz,bRe,bIm);
-
-  acb_struct * aZ = _acb_vec_init(p);
-  acb_struct * bZ = _acb_vec_init(q);
-
-  for ( slong i = 0; i < p; i++ )
-    {
-      acb_one(aZ+i);
-      acb_set(bZ+i,bz);
-    }
-  /*
-    Vectors for numerator/denominator now set
-  */
-
-  // std::cout << "Printing contents of aZ array ... " << std::endl;
-  // acb_print(&aZ[0]); std::cout << "\n";
-  // acb_print(&aZ[1]); std::cout << "\n";
-  // acb_print(&aZ[2]); std::cout << "\n";
-  // std::cout << "Printing contents of bZ array ... " << std::endl;
-  // acb_print(&bZ[0]); std::cout << "\n";
-  // acb_print(&bZ[1]); std::cout << "\n";
-  // acb_print(&bZ[2]); std::cout << "\n";
-
-  // Free some memory
-  arb_clear(aRe); arb_clear(aIm);
-  arb_clear(bRe); arb_clear(bIm);
-
-
-  // std::cout << "Right before the hypergeometric call " << std::endl;
-
-  /*
-    res contains:
-         ---> a pointer to an array of coefficients (coeffs)
-	 ---> the used length (length)
-	 ---> the allocated size of the array (alloc)
-
-    An acb_poly_t is defined as an array of length one of type acb_poly_struct
-  */
-  acb_t res;
-  acb_init(res);
-
-  // arb_poly_t res;
-  // arb_poly_init(res);
-  
-  // THE CALL
-  acb_hypgeom_pfq(res, aZ, p, bZ, q, z, 0, prec);
-  
-  // std::cout << " Printing contents for hypgeom res   =    " << std::endl;
-  // acb_print(res);
-
-  arb_t hypImag; arb_init(hypImag);
-  acb_get_imag(hypImag,res);
-  arb_t hypReal; arb_init(hypReal);
-  acb_get_real(hypReal,res);
-  char * hypRealChar; char * hypImagChar;
-  hypRealChar = arb_get_str(hypReal,prec,ARB_STR_NO_RADIUS);
-  hypImagChar = arb_get_str(hypImag,prec,ARB_STR_NO_RADIUS);
-  // std::cout << "\n\nHypergeometric real = " << hypRealChar << std::endl;
-  // std::cout << "\n\nHypergeometric imag = " << hypImagChar << std::endl;
-
-
-  /*
-    Doing the complex multiplication w/ Arb functions seems to lead to
-    an incorrect result, so let's do it by hand outside of this function...
-  */
-  // arb_t phaseRe; arb_init(phaseRe); arb_set_d(phaseRe,0);
-  // arb_t phaseIm; arb_init(phaseIm); arb_set_d(phaseIm,val);
-  // std::cout << "    The argument of applied phase factor = " << val << std::endl;
-
-
-  // Free more memory
-  acb_clear(z);
-  acb_clear(az);
-  acb_clear(bz);
-  acb_clear(res);
-  arb_clear(hypImag);
-  arb_clear(hypReal);
-  _acb_vec_clear(aZ,p);
-  _acb_vec_clear(bZ,q);
-  
-
-  pfq resHypGeom;
-  resHypGeom.real = atof(hypRealChar);
-  resHypGeom.imag = atof(hypImagChar);
-
-  flint_cleanup(); // free associated flint memory
-
-  return resHypGeom;
-}
-
-
-
-// Evaluate the B kernel
-double tildeBKernel(double u)
-{
-  double si = gsl_sf_Si(u); // Grab the sine-integral
-  double ci = gsl_sf_Ci(u); // Grab the cosine-integral
-
-  return (1-cos(u))/pow(u,2)+2*sin(u)*((u*si-1)/u)+((3-4*M_EULER)/2)*cos(u)+2*cos(u)*(ci-log(u));
-}
-
-// Evaluate the D kernel
-double tildeDKernel(double u)
-{
-  // std::cout << "Within the tildeDKernel function " << std::endl;
-
-  pfq HypGeom = GenHypGeomEval(u);
-  double imArg = cos(u)*HypGeom.imag+sin(u)*HypGeom.real; // hand determine imag(phase*hypgeom)
-  // std::cout << " Hand mult = " << imArg << std::endl;
-  
-  return -4*u*(imArg)-((2-(2+pow(u,2))*cos(u))/pow(u,2));
-}
-
-
+#if 0
 // Hold the entire NLO kernel
 #ifdef FITALPHAS
 double NLOKernel(double x, double ioffeTime, int z, double alphaS)
 #else
-double NLOKernel(double x, double ioffeTime, int z)
+  double NLOKernel(double x, double ioffeTime, int z)
 #endif
 {
   double xnu = x * ioffeTime;
@@ -258,13 +92,6 @@ double NLOKernel(double x, double ioffeTime, int z)
 					 *tildeBKernel(xnu)+tildeDKernel(xnu)  );
 }
 
-
-
-// Return the beta function evaluated at x & y
-double betaFn(double v, double w)
-{
-  return gsl_sf_beta(v,w);
-}
 
 // Convolution
 double NLOKernelPhenoPDFConvolution(double x, void * p)
@@ -290,9 +117,9 @@ double NLOKernelPhenoPDFConvolution(double x, void * p)
 
 
   /*
-    Return normalized PDF N^-1 * x^alpha * (1-x)^beta
-    convolved with perturbative NLO kernel or Cosine/Sine
-  */
+     Return normalized PDF N^-1 * x^alpha * (1-x)^beta
+     convolved with perturbative NLO kernel or Cosine/Sine
+     */
 #ifdef CONVOLK
 #warning "Kernel will be NLO matching kernel  --  assuming pITD data will be fit"
 #warning "!!!Imaginary pITD --> PDF kernel not ready!!!"
@@ -315,13 +142,13 @@ double NLOKernelPhenoPDFConvolution(double x, void * p)
 }
 
 // Perform numerical convolution of NLO matching kernel & pheno PDF
-// double convolution(pdfParams& params)
-double convolution(pdfParams& params, double nu, int z)
+// double convolution(pdfFitParams_t& params)
+double convolution(pdfFitParams_t& params, double nu, int z)
 {
   /*
     Compute approximation to definite integral of form
 
-          I = \int_a^b f(x)w(x)dx
+    I = \int_a^b f(x)w(x)dx
 
     Where w(x) is a weight function ( = 1 for general integrands)
     Absolute/relative error bounds provided by user
@@ -366,112 +193,6 @@ double convolution(pdfParams& params, double nu, int z)
   return result;  
 }
 
-/*
-  PERFORM INVERSIONS OF PASSED MATRICES - return # of SVs removed
-*/
-int matrixInv(gsl_matrix* cov, gsl_matrix* invcov, size_t dataDim)
-{
-  // int status; // status of operations
-  // // Instantiate a null gsl_permutation pointer
-  // gsl_permutation * p = gsl_permutation_calloc(dataDim);
-  // int signum; // sign of permutation (-1)^n
-  // /*
-  //   Determine the LU decomposition of provided matrix
-  //   --> diagonal & upper triangular components of input matrix are now U (upper)
-  //   --> lower triangular components of input matrix are now L (lower)
-  // */
-  // std::cout << "Got to the decomposition" << std::endl;
-  // status = gsl_linalg_LU_decomp(cov,p,&signum);
-  // std::cout << "Got past the decomposition" << std::endl;
-  
-  
-  // // Compute inverse of matrix from its LU decomposition
-  // status = gsl_linalg_LU_invert(cov,p,invcov);
-  // // std::FILE* dumOutput = std::fopen("dummy.dat","w");
-  // // status = gsl_matrix_fprintf(dumOutput,invcov,"%f");
-
-  // // std::cout << gsl_matrix_get(invcov,0,0) << std::endl;
-  // // std::cout << gsl_matrix_get(invcov,1,1) << std::endl;
-
-
-  gsl_matrix * V = gsl_matrix_alloc(dataDim,dataDim);
-  gsl_vector *S = gsl_vector_alloc(dataDim);
-  gsl_vector *work = gsl_vector_alloc(dataDim);
-
-
-  /*
-    PERFORM THE SINGULAR VALUE DECOMPOSITION OF DATA COVARIANCE MATRIX (A)
-    
-    A = USV^T
-        ---> A is an MxN matrix
-	---> S is the singular value matrix (diagonal w/ singular values along diag - descending)
-	---> V is returned in an untransposed form
-  */
-  gsl_linalg_SV_decomp(cov,V,S,work);
-  // On output cov is replaced w/ U
-
-
-  // Define an svd cut
-  double svdCut = 1e-11;
-  // Initialize the inverse of the S diag
-  gsl_vector *pseudoSInv = gsl_vector_alloc(dataDim);
-  gsl_vector_set_all(pseudoSInv,0.0);
-
-
-  // Vector of singular values that are larger than specified cut
-  std::vector<double> aboveCutVals;
-
-  std::cout << "The singular values above SVD Cut = " << svdCut << " are..." << std::endl;
-  for ( int s = 0; s < dataDim; s++ )
-    {
-      double dum = gsl_vector_get(S,s);
-      if ( dum >= svdCut )
-	{
-	  aboveCutVals.push_back(dum);
-	  // std::cout << dum << std::endl;
-	}
-    }
-
-  
-  // Assign the inverse of aboveCutVals to the pseudoSInv vector
-  for ( std::vector<double>::iterator it = aboveCutVals.begin(); it != aboveCutVals.end(); ++it )
-    {
-      gsl_vector_set(pseudoSInv,it-aboveCutVals.begin(),1.0/(*it));
-    }
-
-  // Promote this pseudoSInv vector to a matrix, where entries are placed along diagonal
-  gsl_matrix * pseudoSInvMat = gsl_matrix_alloc(dataDim,dataDim);
-  gsl_matrix_set_zero(pseudoSInvMat);
-  for ( int m = 0; m < dataDim; m++ )
-    {
-      gsl_matrix_set(pseudoSInvMat,m,m,gsl_vector_get(pseudoSInv,m));
-      std::cout << gsl_vector_get(pseudoSInv,m) << std::endl;
-    }
-  
-  
-  /*
-    With singular values that are zero, best we can do is construct a pseudo-inverse
-  */
-  // In place construct the transpose of U (cov was modified in place to U above)_
-  gsl_matrix_transpose(cov);
-
-
-  gsl_matrix * SinvUT = gsl_matrix_alloc(dataDim,dataDim); gsl_matrix_set_zero(SinvUT);
-  gsl_blas_dgemm(CblasNoTrans,CblasNoTrans,1.0,pseudoSInvMat,cov,0.0,SinvUT);
-
-
-  // Now make the covariance inverse
-  gsl_blas_dgemm(CblasNoTrans,CblasNoTrans,1.0,V,SinvUT,0.0,invcov);
-
-  // // Free memory associated with gsl_matrix
-  // gsl_permutation_free(p);
-
-
-  // Return the number of singular values removed
-  return pseudoSInv->size - aboveCutVals.size();
-}
-
-
 
 /*
   MULTIDIMENSIONAL MINIMIZATION - CHI2 
@@ -500,7 +221,7 @@ double chi2Func(const gsl_vector * x, void *data)
   // std::cout << " NMOM = " << Nmom << std::endl;
 
 
-  pdfParams pdfp;
+  pdfFitParams_t pdfp;
 #ifndef QPLUS
   pdfp.alpha = gsl_vector_get(x,0);
   pdfp.beta = gsl_vector_get(x,1);
@@ -541,24 +262,24 @@ double chi2Func(const gsl_vector * x, void *data)
 	}
     }
 
-//   // Conditionally construct the q+ convols
-// #ifdef QPLUS
-//   std::vector<double> convolsI(Nmom*cpyMapI->size());
-//   for ( auto cm = cpyMapI->begin(); cm != cpyMapI->end(); ++cm )
-//   {
-// #pragma omp parallel for num_threads(6)
-//     for ( int m = 0; m < Nmom; m++ )
-//       {
-// 	double nu_tmp = cm->second.ensem.IT[m];
-// 	double z_tmp = cm->first;
+  //   // Conditionally construct the q+ convols
+  // #ifdef QPLUS
+  //   std::vector<double> convolsI(Nmom*cpyMapI->size());
+  //   for ( auto cm = cpyMapI->begin(); cm != cpyMapI->end(); ++cm )
+  //   {
+  // #pragma omp parallel for num_threads(6)
+  //     for ( int m = 0; m < Nmom; m++ )
+  //       {
+  // 	double nu_tmp = cm->second.ensem.IT[m];
+  // 	double z_tmp = cm->first;
 
-// 	double convolTmp;
-// 	if ( nu_tmp == 0 ) { convolTmp = 0; }
-// 	else { convolTmp = convolution(pdfp,nu_tmp,z_tmp); }
+  // 	double convolTmp;
+  // 	if ( nu_tmp == 0 ) { convolTmp = 0; }
+  // 	else { convolTmp = convolution(pdfp,nu_tmp,z_tmp); }
 
-//       }
-//   }
-// #endif
+  //       }
+  //   }
+  // #endif
   
 
 
@@ -621,22 +342,22 @@ double chi2Func(const gsl_vector * x, void *data)
   gsl_blas_ddot(iDiffVec,invCovRightMult,&chi2);
 
 
-//   // Conditionally repeat chi2 determination for imaginary data
-//   // For now reusing gsl_vector/matrix pointers, by assuming real/imag use same number of zseps
-// #ifdef QPLUS
-//   for ( auto d1 = cpyMapI->begin(); d1 != cpyMapI->end(); ++d1 )
-//     {
-// #pragma omp parallel for num_threads(Nmom)
-//       for ( int m1 = 0; m1 < Nmom; m1++ )
-// 	{
-// 	  gsl_vector_set(iDiffVec,I,convolsI[I] - d1->second.ensem.avgM[m1]);
-// 	}
-//     }
+  //   // Conditionally repeat chi2 determination for imaginary data
+  //   // For now reusing gsl_vector/matrix pointers, by assuming real/imag use same number of zseps
+  // #ifdef QPLUS
+  //   for ( auto d1 = cpyMapI->begin(); d1 != cpyMapI->end(); ++d1 )
+  //     {
+  // #pragma omp parallel for num_threads(Nmom)
+  //       for ( int m1 = 0; m1 < Nmom; m1++ )
+  // 	{
+  // 	  gsl_vector_set(iDiffVec,I,convolsI[I] - d1->second.ensem.avgM[m1]);
+  // 	}
+  //     }
   
-//   gsl_vector_memcpy(jDiffVec,iDiffVec);
-//   gsl_blas_dgemv(CblasNoTrans,1.0,invCovI,jDiffVec,0.0,invCovRightMult);
-//   gsl_blas_ddot(iDiffVec,invCovRightMult,&chi2I);
-// #endif
+  //   gsl_vector_memcpy(jDiffVec,iDiffVec);
+  //   gsl_blas_dgemv(CblasNoTrans,1.0,invCovI,jDiffVec,0.0,invCovRightMult);
+  //   gsl_blas_ddot(iDiffVec,invCovRightMult,&chi2I);
+  // #endif
 
 
 
@@ -681,99 +402,54 @@ double chi2Func(const gsl_vector * x, void *data)
 
   return chi2;
 }
-
-
-// Method to set the data covariance for Real/Imag/or both pITDs
-void setCovariance(gsl_matrix *c,compPITD &e, std::vector<reducedPITD> &j, int comp)//, int Nmom, int zmin)
-{
-  for ( auto d1 = e.disps.begin(); d1 != e.disps.end(); ++d1 )
-    {
-      for ( int m1 = 0; m1 < Nmom; m1++ )
-	{
-	  int I = m1 + (d1->first-zmin)*Nmom; // get the index by moding out by zmin
-
-	  for ( auto d2 = e.disps.begin(); d2 != e.disps.end(); ++d2 )
-	    {
-	      for ( int m2 = 0; m2 < Nmom; m2++ )
-		{
-		  int J = m2 + (d2->first-zmin)*Nmom; // get the index by moding out by zmin
-
-
-		  double val = 0.0;
-		  for ( int g = 0; g < j.size(); g++ )
-		    {
-		      // Determine this entry of the covariance matrix
-		      if ( comp == 0 )
-			{
-			  val += ( j[g].real.disps[d1->first].ensem.avgM[m1] - d1->second.ensem.avgM[m1] )*
-			    ( j[g].real.disps[d2->first].ensem.avgM[m2] - d2->second.ensem.avgM[m2] );
-			}
-		      if ( comp == 1 )
-			{
-			  val += ( j[g].imag.disps[d1->first].ensem.avgM[m1] - d1->second.ensem.avgM[m1] )*
-			    ( j[g].imag.disps[d2->first].ensem.avgM[m2] - d2->second.ensem.avgM[m2] );
-			}
-		    }
-
-		  // Set the entry and proceed
-#ifdef UNCORRELATED
-		  if ( I == J ) // modify diagonal elements from zero
-		    {
-		      gsl_matrix_set(c,I,J,val*((j.size()-1)/(1.0*j.size())));
-		    }
-#else
-		  gsl_matrix_set(c,I,J,val*((j.size()-1)/(1.0*j.size())));
 #endif
-
-		} // end m2
-	    } // end auto d2
-	} // end m1
-    } // end auto d1 
-  
-} // end setCovariance
 
 
 int main( int argc, char *argv[] )
 {
-
+  
   if ( argc != 12 )
     {
-      std::cout << "Usage: $0 <alpha_i> <beta_i> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <pmin> <pmax> <zmin> <zmax>" << std::endl;
+      std::cout << "Usage: $0 <PDF (QVAL -or- QPLUS)> <nparam fit> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin> <zmax> <pmin> <pmax>" << std::endl;
+      // std::cout << "Usage: $0 <alpha_i> <beta_i> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin> <zmax> <pmin> <pmax>" << std::endl;
       exit(1);
     }
-
+  
   // Enable nested parallelism
   omp_set_nested(true);
-
+  
   std::stringstream ss;
-
-  // Allow for conditional fitting of alpha_s at compile time
-#ifdef FITALPHAS
-  double alpha_s_i = 0.3;
-#endif
-#ifndef QPLUS
-  double alpha_i, beta_i;
-  ss << argv[1]; ss >> alpha_i; ss.clear(); ss.str(std::string());
-  ss << argv[2]; ss >> beta_i;  ss.clear(); ss.str(std::string());
-#elif defined QPLUS
-  double normP_i = 1.0;
-  double alphaP_i;
-  double betaP_i;
-  ss << argv[1]; ss >> alphaP_i; ss.clear(); ss.str(std::string());
-  ss << argv[2]; ss >> betaP_i;  ss.clear(); ss.str(std::string());
-#endif
-  int gauge_configs, jkStart, jkEnd;
+  
+  //  // Allow for conditional fitting of alpha_s at compile time
+  // #ifdef FITALPHAS
+  //  double alpha_s_i = 0.3;
+  // #endif
+  // #ifndef QPLUS
+  //  double alpha_i, beta_i;
+  //  ss << argv[1]; ss >> alpha_i; ss.clear(); ss.str(std::string());
+  //  ss << argv[2]; ss >> beta_i;  ss.clear(); ss.str(std::string());
+  // #elif defined QPLUS
+  //  double normP_i = 1.0;
+  //  double alphaP_i;
+  //  double betaP_i;
+  //  ss << argv[1]; ss >> alphaP_i; ss.clear(); ss.str(std::string());
+  //  ss << argv[2]; ss >> betaP_i;  ss.clear(); ss.str(std::string());
+  // #endif
+  int gauge_configs, jkStart, jkEnd, nParams, pdfType;
   
   std::string matelemType;
-
+  enum PDFs { QVAL, QPLUS };
+  
+  ss << argv[1];  ss >> pdfType;       ss.clear(); ss.str(std::string());
+  ss << argv[2];  ss >> nParams;        ss.clear(); ss.str(std::string());
   ss << argv[4];  ss >> matelemType;   ss.clear(); ss.str(std::string());
   ss << argv[5];  ss >> gauge_configs; ss.clear(); ss.str(std::string());
   ss << argv[6];  ss >> jkStart;       ss.clear(); ss.str(std::string());
   ss << argv[7];  ss >> jkEnd;         ss.clear(); ss.str(std::string());
-  ss << argv[8];  ss >> pmin;          ss.clear(); ss.str(std::string());
-  ss << argv[9];  ss >> pmax;          ss.clear(); ss.str(std::string());
-  ss << argv[10]; ss >> zmin;          ss.clear(); ss.str(std::string());
-  ss << argv[11]; ss >> zmax;          ss.clear(); ss.str(std::string());
+  ss << argv[8];  ss >> zmin;          ss.clear(); ss.str(std::string());
+  ss << argv[9];  ss >> zmax;          ss.clear(); ss.str(std::string());
+  ss << argv[10]; ss >> pmin;          ss.clear(); ss.str(std::string());
+  ss << argv[11]; ss >> pmax;          ss.clear(); ss.str(std::string());
 
   // Potentially modify the num elements for initializations
   Nmom = (pmax-pmin)+1;
@@ -827,121 +503,73 @@ int main( int argc, char *argv[] )
   distribution.calcInvCov(); std::cout << "Computed the inverse of full data covariance" << std::endl;
 
 
-
-
-  /*
-    CONSTRUCT THE DATA COVARIANCE OF FITTED REDUCED PSEUDO IOFFE-TIME DISTRIBUTION
-    FROM PURELY THE ENSEM INSTANCE OF reducedPITD
-  */
-  // Initialize gsl_matrices for covariance and inverse and set all entries to zero
-#ifndef QPLUS
-  gsl_matrix * Cov = gsl_matrix_calloc(ensem->real.disps.size()*Nmom,ensem->real.disps.size()*Nmom);
-  gsl_matrix * invCov = gsl_matrix_calloc(ensem->real.disps.size()*Nmom,ensem->real.disps.size()*Nmom);
-  setCovariance(Cov,ensem->real,jack,0);//,Nmom,zmin);
-#elif defined QPLUS
-  gsl_matrix * CovP = gsl_matrix_calloc(ensem->imag.disps.size()*Nmom,ensem->imag.disps.size()*Nmom);
-  gsl_matrix * invCovP = gsl_matrix_calloc(ensem->imag.disps.size()*Nmom,ensem->imag.disps.size()*Nmom);
-  setCovariance(CovP,ensem->imag,jack,1);//,Nmom,zmin);
-#endif
-  
-  std::cout << "Inverting the data covariance matrix" << std::endl;
-
-  // Do the matrix inversion via SVD, catching the number of singular values
-  // removed below SV cut upon return
-#ifndef QPLUS
-  int svsBelowCut = matrixInv(Cov,invCov,Nmom*ensem->real.disps.size());
-  std::cout << "Number of singular values removed from qv covariance = " << svsBelowCut << std::endl;
-#elif defined QPLUS
-  int svsBelowCutP = matrixInv(CovP,invCovP,Nmom*ensem->imag.disps.size());
-  std::cout << "Number of singular values removed from q+ covariance = " << svsBelowCutP << std::endl;
-#endif
-
-  // // Covariance matrix is no longer needed
-  // gsl_matrix_free(Cov);
-
-
-  // std::cout << "Checking suitable inverse was found" << std::endl;
-  // gsl_matrix * id = gsl_matrix_alloc(Nmom*Nz,Nmom*Nz); gsl_matrix_set_zero(id);
-  // gsl_blas_dgemm(CblasNoTrans,CblasNoTrans,1.0,Cov,invCov,0.0,id);
-	      
-
-
-  // Store the computed inverse of data covariance matrix
-#ifndef QPLUS
-  ensem->invCovR = invCov;
-#elif defined QPLUS
-  ensem->invCovI = invCovP;
+#if 0
+  std::cout << "Checking suitable inverse was found" << std::endl;
+  gsl_matrix * id = gsl_matrix_alloc(distribution.data.covR->size1,distribution.data.covR->size1);
+  gsl_matrix_set_zero(id);
+  gsl_blas_dgemm(CblasNoTrans,CblasNoTrans,1.0,distribution.data.covR,distribution.data.invCovR,0.0,id);
+  printMat(id);
+  exit(8);
 #endif
 
 
+  //   /*
+  //     SCAN OVER ALPHA AND BETA AND EVALUATE CHI2
+  //     HOPEFULLY USE THESE DETERMINATIONS TO SET INITIAL FIT PARAMS
+  //   */
+  //   {
+  //     std::string scanName = "b_b0xDA__J0_A1pP."+matelemType+"_scan.2-parameter.txt";
+  //     std::ofstream scanOUT(scanName.c_str(), std::ofstream::in | std::ofstream::app );
+  //     for ( int ascan = 1; ascan <= 500; ascan++ )
+  //       {
+  // // #pragma omp parallel for num_threads(16)
+  // 	for ( int bscan = 1; bscan <= 500; bscan++ )
+  // 	  {
+  // 	    double alphaScan = -0.8 + ascan*(2.0/500);
+  // 	    double betaScan  = 0.5 + bscan*(3.5/500);
 
+  // 	    gsl_vector *scan = gsl_vector_alloc(2);
+  // 	    gsl_vector_set(scan,0,alphaScan);
+  // 	    gsl_vector_set(scan,1,betaScan);
 
-//   /*
-//     SCAN OVER ALPHA AND BETA AND EVALUATE CHI2
-//     HOPEFULLY USE THESE DETERMINATIONS TO SET INITIAL FIT PARAMS
-//   */
-//   {
-//     std::string scanName = "b_b0xDA__J0_A1pP."+matelemType+"_scan.2-parameter.txt";
-//     std::ofstream scanOUT(scanName.c_str(), std::ofstream::in | std::ofstream::app );
-//     for ( int ascan = 1; ascan <= 500; ascan++ )
-//       {
-// // #pragma omp parallel for num_threads(16)
-// 	for ( int bscan = 1; bscan <= 500; bscan++ )
-// 	  {
-// 	    double alphaScan = -0.8 + ascan*(2.0/500);
-// 	    double betaScan  = 0.5 + bscan*(3.5/500);
-
-// 	    gsl_vector *scan = gsl_vector_alloc(2);
-// 	    gsl_vector_set(scan,0,alphaScan);
-// 	    gsl_vector_set(scan,1,betaScan);
-
-// 	    double redChi2 = chi2Func(scan,&ensemReal)/(Nmom*ensemReal.disps.size() - scan->size - svsBelowCut);
-// 	    scanOUT << "SCAN:: " << redChi2 << " " << alphaScan << " " << betaScan << "\n";
+  // 	    double redChi2 = chi2Func(scan,&ensemReal)/(Nmom*ensemReal.disps.size() - scan->size - svsBelowCut);
+  // 	    scanOUT << "SCAN:: " << redChi2 << " " << alphaScan << " " << betaScan << "\n";
 	    
-// 	    gsl_vector_free(scan);
-// 	  }
-//       }
-//     scanOUT.close();
-//   }
-//   exit(30);
+  // 	    gsl_vector_free(scan);
+  // 	  }
+  //       }
+  //     scanOUT.close();
+  //   }
+  //   exit(30);
 	    
-
-
-
-
-
-
 
 
   /*
     SET THE STARTING PARAMETER VALUES AND INITIAL STEP SIZES ONCE
   */
-  // double pdfp_ini[3] = { alpha_i, beta_i, alpha_s_i};
-  /*
-    QPLUS START
-  */
-#ifdef QPLUS
-  // Set initial values in parameter space
-#ifdef FITALPHAS
-  gsl_vector *pdfp_ini = gsl_vector_alloc(4);
-  gsl_vector *pdfpSteps = gsl_vector_alloc(4);
+  gsl_vector *pdfp_ini, *pdfpSteps;
 
-  gsl_vector_set(pdfp_ini,3,alpha_s_i);  // ALPHA_S
-  gsl_vector_set(pdfpSteps,3,0.1);
-#else
-  gsl_vector *pdfp_ini = gsl_vector_alloc(3);
-  gsl_vector *pdfpSteps = gsl_vector_alloc(3);
-#endif
-  gsl_vector_set(pdfp_ini,0,normP_i);    // q+ NORMALIZATION
-  gsl_vector_set(pdfp_ini,1,alphaP_i);   // q+ ALPHA
-  gsl_vector_set(pdfp_ini,2,betaP_i);    // q+ BETA
-  // Set initial step sizes in parameter space
-  gsl_vector_set(pdfpSteps,0,0.5);       // q+ NORMALIZATION step
-  gsl_vector_set(pdfpSteps,1,0.1);       // q+ ALPHA step
-  gsl_vector_set(pdfpSteps,2,0.2);       // q+ BETA step
-#endif
-  // END QPLUS
+  switch(pdfType)
+    {
+    case QVAL:
+      pdfp_ini  = gsl_vector_alloc(nParams);
+      pdfpSteps = gsl_vector_alloc(nParams);
+      for ( int s = 0; s < nParams; s++ )
+	{
+	  gsl_vector_set(pdfp_ini, s, pdfFitParams_t().alpha);
+	}
 
+    case QPLUS:
+      pdfp_ini  = gsl_vector_alloc(nParams+1);
+      pdfpSteps = gsl_vector_alloc(nParams+1);
+    }
+
+  // std::cout << pdfp_ini->size() << std::endl;
+  std::cout << gsl_vector_get(pdfp_ini,0) << std::endl;
+
+
+
+#if 0
   /*
     QVALENCE START
   */
@@ -974,7 +602,6 @@ int main( int argc, char *argv[] )
   const gsl_multimin_fminimizer_type *minimizer = gsl_multimin_fminimizer_nmsimplex2rand;
   // const gsl_multimin_fminimizer_type *minimizer = gsl_multimin_fminimizer_nmsimplex2;
   gsl_multimin_fminimizer * fmin = gsl_multimin_fminimizer_alloc(minimizer,pdfp_ini->size);
-
 
 
 
@@ -1116,6 +743,6 @@ int main( int argc, char *argv[] )
 
   // Close the output file containing jack fit results
   OUT.close();
-
+#endif
   return 0;
 }

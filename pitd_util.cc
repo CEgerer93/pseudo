@@ -233,17 +233,18 @@ namespace PITD
   void reducedPITD::calcCov()
   {
     // Instantiate pointers to gsl matrices and set all entries to zero
-    gsl_matrix *cR = gsl_matrix_calloc(data.disps.size()*data.disps.begin()->second.moms.size(),
-				       data.disps.size()*data.disps.begin()->second.moms.size());
-    gsl_matrix *cI = gsl_matrix_calloc(data.disps.size()*data.disps.begin()->second.moms.size(),
-				       data.disps.size()*data.disps.begin()->second.moms.size());
+    data.covR = gsl_matrix_calloc(data.disps.size()*data.disps.begin()->second.moms.size(),
+				  data.disps.size()*data.disps.begin()->second.moms.size());
+    data.covI = gsl_matrix_calloc(data.disps.size()*data.disps.begin()->second.moms.size(),
+				  data.disps.size()*data.disps.begin()->second.moms.size());
     for ( std::map<int, zvals>::iterator di = data.disps.begin(); di != data.disps.end(); ++di )
       {
 	for ( std::map<std::string, momVals>::const_iterator mi = di->second.moms.begin();
 	      mi != di->second.moms.end(); mi++ )
 	  {
 	    // Get the Ith index
-	    int I = std::distance(di->second.moms.begin(), mi) + di->first*di->second.moms.size();
+	    int I = std::distance<std::map<std::string, momVals>::const_iterator>
+	      (di->second.moms.begin(), mi) + di->first*di->second.moms.size();
 
 	    for ( auto dj = data.disps.begin(); dj != data.disps.end(); ++dj )
 	      {
@@ -257,9 +258,9 @@ namespace PITD
 		    for ( int J = 0; J < gauge_configs; J++ )
 		      {
 
-			_r += ( mi->second.mat[J].real() - mi->second.avgMat.real() )*
+			_r += ( mi->second.mat[J].real() - mi->second.matAvg.real() )*
 			  ( mj->second.mat[J].real() - mj->second.matAvg.real() );
-			_i += ( mi->second.mat[J].imag() - mi->second.avgMat.imag() )*
+			_i += ( mi->second.mat[J].imag() - mi->second.matAvg.imag() )*
 			  ( mj->second.mat[J].imag() - mj->second.matAvg.imag() );
 		      
 		      } // end J
@@ -269,12 +270,12 @@ namespace PITD
 #ifdef UNCORRELATED
 		    if ( I == J )
 		      {
-			gsl_matrix_set(cR, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_r );
-			gsl_matrix_set(cI, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_i );
+			gsl_matrix_set(data.covR, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_r );
+			gsl_matrix_set(data.covI, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_i );
 		      }
 #else
-		    gsl_matrix_set(cR, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_r );
-		    gsl_matrix_set(cI, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_i );
+		    gsl_matrix_set(data.covR, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_r );
+		    gsl_matrix_set(data.covI, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_i );
 #endif
 		  } // end mj
 	      } // end dj
@@ -291,14 +292,14 @@ namespace PITD
     std::map<int, gsl_matrix *> dumInvsMap;
 
     // Get the inverse
-    svsFullR = matrixInv(covR, dumInvsMap, dumZi);
+    data.svsFullR = matrixInv(data.covR, dumInvsMap, dumZi);
     // Rip out the matrix inverse
-    invCovR = dumInvsMap.begin()->second;
+    data.invCovR = dumInvsMap.begin()->second;
 
     // Get the inverse
-    svsFullI = matrixInv(covI, dumInvsMap, dumZi);
+    data.svsFullI = matrixInv(data.covI, dumInvsMap, dumZi);
     // Rip out the matrix inverse
-    invCovI = dumInvsMap.begin()->second;
+    data.invCovI = dumInvsMap.begin()->second;
   }
 
 
@@ -345,7 +346,7 @@ namespace PITD
 
     // Other group headings w/in h5 file
     const char * const momenta[] = {"pz0","pz1","pz2","pz3","pz4","pz5","pz6"};
-    const char * const comp[] = {"Re", "Im"}; // {"1","2"};
+    const char * const comp[] = {"1","2"}; // {"Re", "Im"}; // {"1","2"};
     const char * const zsep[] = {"zsep0","zsep1","zsep2","zsep3","zsep4","zsep5","zsep6","zsep7","zsep8",
 				 "zsep9","zsep10","zsep11","zsep12","zsep13","zsep14","zsep15","zsep16"};
 
@@ -355,10 +356,12 @@ namespace PITD
       {
 	zvals dumZ;
 
+	hid_t h5Zsep = H5Gopen(h5Current, zsep[z], H5P_DEFAULT);
+
 	// Iterate through each momentum stored
 	for ( int m = pmin; m <= pmax; m++ )
 	  {
-	    hid_t h5Mom = H5Gopen(h5Current, momenta[m], H5P_DEFAULT);
+	    hid_t h5Mom = H5Gopen(h5Zsep, momenta[m], H5P_DEFAULT);
 
 
 	    // // Start by grabbing handle to ensemble group
@@ -413,16 +416,17 @@ namespace PITD
 		hid_t h5Comp = H5Gopen(h5Jack,comp[c], H5P_DEFAULT);
 		
 		
-		// Get the zsep handle
-		hid_t h5Zsep = H5Gopen(h5Comp, zsep[z], H5P_DEFAULT);
+		// // Get the zsep handle
+		// hid_t h5Zsep = H5Gopen(h5Comp, zsep[z], H5P_DEFAULT);
 		
 		// Initialize a buffer to read jackknife dataset
-		double read_buf[gauge_configs*3];
+		// double read_buf[gauge_configs*3];
+		double read_buf[gauge_configs*2];
 		/* double *read_buf = NULL; */
 		/* read_buf = (double*) malloc(sizeof(double)*gauge_configs*3); */
 		
 		
-		hid_t dset_id = H5Dopen(h5Zsep, DATASET, H5P_DEFAULT);
+		hid_t dset_id = H5Dopen(h5Comp, DATASET, H5P_DEFAULT);
 		herr_t status = H5Dread(dset_id, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, read_buf);
 		
 		
@@ -437,13 +441,13 @@ namespace PITD
 		  {
 		    if ( c == 0 )
 		      {
-			dumMomVal.mat[J].real(read_buf[1+3*J]);
-			_avgR += read_buf[1+3*J];
+			dumMomVal.mat[J].real(read_buf[1+2*J]);
+			_avgR += read_buf[1+2*J];
 		      }
 		    if ( c == 1 )
 		      {
-			dumMomVal.mat[J].imag(read_buf[1+3*J]);
-			_avgI += read_buf[1+3*J];
+			dumMomVal.mat[J].imag(read_buf[1+2*J]);
+			_avgI += read_buf[1+2*J];
 		      }
 		  }
 		// Compute the averge Mat for the {p, z}

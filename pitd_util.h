@@ -81,7 +81,7 @@ namespace PITD
     std::map<int, gsl_matrix *> covsRInv, covsIInv; // inverse of covariances for each zsep
     std::map<int, int> svsR, svsI;
 
-    gsl_matrix *covR, covI;        // Full data covariances
+    gsl_matrix *covR, *covI;        // Full data covariances
     gsl_matrix *invCovR, *invCovI; // Inverses of full data covariances
     int svsFullR, svsFullI;        // # singular values removed from full data covariance
   };
