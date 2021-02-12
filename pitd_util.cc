@@ -38,65 +38,6 @@ namespace PITD
   }
 
 
-  // // Default constructor
-  // reducedPITD::reducedPITD() {}
-
-  // // Set the number of configuations/ensemble info
-  // reducedPITD::reducedPITD(int g) // , int zm, int zx, int n)
-  // {
-  //   gauge_configs = g;
-  //   // for ( int zi = zm; zi <= zx; zi++ )
-  //   //   {
-  //   // 	real.disps[zi].ensem.IT.resize(n); real.disps[zi].ensem.avgM.resize(n);
-  //   // 	real.disps[zi].ensem.errM.resize(n);
-  //   // 	imag.disps[zi].ensem.IT.resize(n); imag.disps[zi].ensem.avgM.resize(n);
-  //   // 	imag.disps[zi].ensem.errM.resize(n);
-  //   //   }
-  //   // std::cout << "Instantiated reducedPITD object with real dimensions : "
-  //   // 	      << "R:: " << real.disps.size() << " X " << real.disps[zm].ensem.IT.size() << "   "
-  //   // 	      << "I:: " << imag.disps.size() << " X " << imag.disps[zm].ensem.IT.size() << std::endl;     
-  // }
-
-  // // Print real/imag (comp) ensemble average data for provided zsep
-  // void reducedPITD::ensemPrintZ(int zf, int c)
-  // {
-  //   rPITD r;
-  //   if ( c == 0 ) { r = real.disps[zf]; }
-  //   else if ( c == 1 ) { r = imag.disps[zf]; }
-  //   else {
-  //     std::cout << "   Unable to print ensemble avg data for provided comp - accept: 0 (RE) -or- 1 (IM)"
-  // 		<< std::endl;
-  //     std::cout << "   Passed comp = " << c << std::endl;
-  //     exit(10);
-  //   }
-
-  //   for ( auto i = r.ensem.IT.begin(); i != r.ensem.IT.end(); i++ )
-  //     {
-  // 	int h = i - r.ensem.IT.begin();
-  // 	std::cout << std::setprecision(15) << (*i) << " " << r.ensem.avgM[h] << " " << r.ensem.errM[h]
-  // 		  << std::endl;
-  //     }
-  // }
-
-  // // Print the real/imag (comp) polynomial fit parameters to ensemble average data for provided zsep
-  // void reducedPITD::polyFitPrint(int zf, int comp)
-  // {
-  //   rPITD r;
-  //   if ( comp == 0 ) { r = real.disps[zf]; }
-  //   else if ( comp == 1 ) { r = imag.disps[zf]; }
-  //   else {
-  //     std::cout << "   Unable to print ensemble avg data for provided zsep - accept: 0 (RE) -or- 1 (IM)"
-  // 		<< std::endl;
-  //   }
-  //   std::cout << "  " << zf << " ";
-  //   for ( auto p = r.polyFitParams.begin(); p != r.polyFitParams.end(); ++p )
-  //     {
-  // 	std::cout << std::setprecision(15) << *p << " ";
-  //     }
-  //   std::cout << "\n";
-  // }
-
-
   /*
     PERFORM INVERSION OF PASSED MATRIX - RETURN # OF SVs REMOVED
   */
@@ -287,6 +228,81 @@ namespace PITD
 
 
   /*
+    Calculate the full data covariance
+  */
+  void reducedPITD::calcCov()
+  {
+    // Instantiate pointers to gsl matrices and set all entries to zero
+    gsl_matrix *cR = gsl_matrix_calloc(data.disps.size()*data.disps.begin()->second.moms.size(),
+				       data.disps.size()*data.disps.begin()->second.moms.size());
+    gsl_matrix *cI = gsl_matrix_calloc(data.disps.size()*data.disps.begin()->second.moms.size(),
+				       data.disps.size()*data.disps.begin()->second.moms.size());
+    for ( std::map<int, zvals>::iterator di = data.disps.begin(); di != data.disps.end(); ++di )
+      {
+	for ( std::map<std::string, momVals>::const_iterator mi = di->second.moms.begin();
+	      mi != di->second.moms.end(); mi++ )
+	  {
+	    // Get the Ith index
+	    int I = std::distance(di->second.moms.begin(), mi) + di->first*di->second.moms.size();
+
+	    for ( auto dj = data.disps.begin(); dj != data.disps.end(); ++dj )
+	      {
+		for ( auto mj = dj->second.moms.begin(); mj != dj->second.moms.end(); mj++ )
+		  {
+		    // Get the Jth index
+		    int J = std::distance(dj->second.moms.begin(), mj) + dj->first*dj->second.moms.size();
+
+		    double _r(0.0), _i(0.0);
+
+		    for ( int J = 0; J < gauge_configs; J++ )
+		      {
+
+			_r += ( mi->second.mat[J].real() - mi->second.avgMat.real() )*
+			  ( mj->second.mat[J].real() - mj->second.matAvg.real() );
+			_i += ( mi->second.mat[J].imag() - mi->second.avgMat.imag() )*
+			  ( mj->second.mat[J].imag() - mj->second.matAvg.imag() );
+		      
+		      } // end J
+
+
+		    // Set the covariance entry and proceed
+#ifdef UNCORRELATED
+		    if ( I == J )
+		      {
+			gsl_matrix_set(cR, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_r );
+			gsl_matrix_set(cI, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_i );
+		      }
+#else
+		    gsl_matrix_set(cR, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_r );
+		    gsl_matrix_set(cI, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_i );
+#endif
+		  } // end mj
+	      } // end dj
+	  } // end mi
+      } // end di
+  }
+
+  /*
+    Calculate the inverse of full data covariance
+  */
+  void reducedPITD::calcInvCov()
+  {
+    int dumZi = -1;
+    std::map<int, gsl_matrix *> dumInvsMap;
+
+    // Get the inverse
+    svsFullR = matrixInv(covR, dumInvsMap, dumZi);
+    // Rip out the matrix inverse
+    invCovR = dumInvsMap.begin()->second;
+
+    // Get the inverse
+    svsFullI = matrixInv(covI, dumInvsMap, dumZi);
+    // Rip out the matrix inverse
+    invCovI = dumInvsMap.begin()->second;
+  }
+
+
+  /*
     View a covariance matrix
   */
   void reducedPITD::viewZCovMat(int z)
@@ -308,7 +324,8 @@ namespace PITD
   /*
     READER FOR PASSED H5 FILES
   */
-  void H5Read(char *inH5, reducedPITD *dat, int gauge_configs, int zmin, int zmax, int pmin, int pmax)
+  void H5Read(char *inH5, reducedPITD *dat, int gauge_configs, int zmin, int zmax, int pmin,
+	      int pmax, std::string dTypeName)
   {
     /*
     OPEN THE H5 FILE CONTAINING ENSEM/JACK RESULTS OF pPDF
@@ -321,7 +338,7 @@ namespace PITD
     hid_t space, h5Pitd;
     herr_t h5Status;
     // The name of data actually stored in h5 file
-    const char * DATASET = "pitd";
+    const char * DATASET = &dTypeName[0];
 
     // Access the first group entry within root - i.e. the current
     hid_t h5Current = H5Gopen(h5File, "/b_b0xDA__J0_A1pP", H5P_DEFAULT);
@@ -405,7 +422,7 @@ namespace PITD
 		/* read_buf = (double*) malloc(sizeof(double)*gauge_configs*3); */
 		
 		
-		hid_t dset_id = H5Dopen(h5Zsep, "pitd", H5P_DEFAULT);
+		hid_t dset_id = H5Dopen(h5Zsep, DATASET, H5P_DEFAULT);
 		herr_t status = H5Dread(dset_id, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, read_buf);
 		
 		

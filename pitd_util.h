@@ -57,35 +57,12 @@ namespace PITD
 
   struct momVals
   {
-    /* struct */
-    /* { */
-    /*   std::vector<std::complex<double> > mat;       // Matelem - for avg or each jk */
-    /*   std::array<double,3>               polFitParams; // Polynomial fit in ioffe-time for reduced pITD data */
-
-    /*   // Data covariances for this zsep */
-    /*   gsl_matrix                         *zCovR, *zCovI; */
-    /* } amom; */
-
-    
     double                             IT;
     std::vector<std::complex<double> > mat;
     std::complex<double>               matAvg;
-
-    /* std::string                       tag = "pz";                 // a verbose label */
-    /* momVals(int _g = 0, std::string _s = "") { amom.mat.resize(_g), tag += _s; }; // Parametrized */
-
   momVals(int _g = 0) : mat(_g) {};
-
-  /* momVals(int _g, std::string _s) : amom.mat(_g), tag = "pz"+_s {}; */
   };
 
-  
-  /* // Try to implement a weak-ordering for the zvals.moms map */
-  /* bool operator<(const std::string ml, const std::string mr) */
-  /* { */
-  /*   return std::atoi(ml.substr(2)) < std::atoi(ml.substr(2)); */
-  /* } */
-    
 
   struct zvals
   {
@@ -99,13 +76,14 @@ namespace PITD
   // PITD info for each of Real/Imag components
   struct pitd
   {
-    std::map<int, zvals> disps; // data for each zsep
-    std::map<int, gsl_matrix *> covsR, covsI; // covariances for each zsep
+    std::map<int, zvals> disps;                     // data for each zsep
+    std::map<int, gsl_matrix *> covsR, covsI;       // covariances for each zsep
     std::map<int, gsl_matrix *> covsRInv, covsIInv; // inverse of covariances for each zsep
     std::map<int, int> svsR, svsI;
 
-    /* std::map<int, momVals> disps;  // Match a zsep to momenta */
-    gsl_matrix *invCovR, *invCovI; // Inverses of entire data covariances
+    gsl_matrix *covR, covI;        // Full data covariances
+    gsl_matrix *invCovR, *invCovI; // Inverses of full data covariances
+    int svsFullR, svsFullI;        // # singular values removed from full data covariance
   };
 
 
@@ -141,6 +119,10 @@ namespace PITD
     // Determine the inverse of data covariance for each zsep
     void calcInvCovPerZ();
 
+    // Determine the full data covariance
+    void calcCov();
+    void calcInvCov();
+
     // View a covariance matrix
     void viewZCovMat(int zsep);
     // View inverse of a covariance matrix
@@ -161,7 +143,8 @@ namespace PITD
   /*
     READER FOR PASSED H5 FILES
   */
-  void H5Read(char *inH5, reducedPITD *dat, int gauge_configs, int zmin, int zmax, int pmin, int pmax);
+  void H5Read(char *inH5, reducedPITD *dat, int gauge_configs, int zmin, int zmax, int pmin,
+	      int pmax, std::string dTypeName);
 
   
   /*
