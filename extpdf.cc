@@ -38,7 +38,7 @@
 #include "hdf5.h"
 
 #include "pitd_util.h"
-
+#include "kernel.h"
 
 // Default values of p & z to cut on
 int zmin,zmax,pmin,pmax,Nmom,Nz;
@@ -53,6 +53,8 @@ int zmin,zmax,pmin,pmax,Nmom,Nz;
 using namespace PITD;
 
 
+int nParams, pdfType;
+
 /*
   Parameters describing pheno PDF fit
 */
@@ -64,80 +66,72 @@ struct pdfFitParams_t
   std::pair<int,int> alphaRestrict = std::make_pair(-1,1);
   std::pair<int,int> betaRestrict = std::make_pair(0.5,5);
 
+  // Return the evaluated pdf
+  double pdfEval(double x)
+  {
+    if ( nParams == 2 )
+      return norm * pow(x,alpha) * (1-x,beta);
+    if ( nParams == 3 )
+      return norm * pow(x,alpha) * (1-x,beta) * (1 + delta*x);
+    if ( nParams == 4 )
+      return norm * pow(x,alpha) * (1-x,beta) * (1 + gamma*sqrt(x) + delta*x);
+  }
+
   // Default/Parametrized constructor w/ initializer lists
   // pdfFitParams_t() : norm(1.0), alpha(-0.3), beta(2.5), gamma(0.0), delta(0.0) {}
-  pdfFitParams_t(double _n = 1.0, double _a = -0.3, double _b = 2.5, double _g = 0.0,
-		 double _d = 0.0) : norm(_n), alpha(_a), beta(_b), gamma(_g), delta(_d) {}
+  pdfFitParams_t(bool _floatNorm = false, double _a = -0.3, double _b = 2.5, double _g = 0.0,
+		 double _d = 0.0) : alpha(_a), beta(_b), gamma(_g), delta(_d)
+  {
+    if ( !_floatNorm )
+      norm = 1.0/( betaFn(alpha+1,beta+1)+gamma*betaFn(alpha+1.5,beta+1)+delta*betaFn(alpha+2,beta+1) );
+    if ( _floatNorm )
+      norm = 1.0;
+  }
 };
 
 // Structure to hold all needed parameters to perform convolution of a trial pdf
-struct convolParams
+struct convolParams_t
 {
   pdfFitParams_t p;
   double nu;
   int z;
+  convolParams_t(double _nu, int _z, pdfFitParams_t _p) : nu(_nu), z(_z) { p = _p; }
 };
 
 
-#if 0
-// Hold the entire NLO kernel
-#ifdef FITALPHAS
-double NLOKernel(double x, double ioffeTime, int z, double alphaS)
-#else
-  double NLOKernel(double x, double ioffeTime, int z)
-#endif
+
+// Hold the entire pITD->PDF NLO kernel
+double NLOKernel(double x, double ioffeTime, int z)
 {
   double xnu = x * ioffeTime;
-  return cos(xnu)-(alphaS/(2*M_PIl))*Cf*(log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) )
-					 *tildeBKernel(xnu)+tildeDKernel(xnu)  );
+  if ( pdfType == 1 )
+    return cos(xnu)-(alphaS/(2*M_PIl))*Cf*(log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) )
+					   *tildeBKernel(xnu)+tildeDKernel(xnu)  );
+  // if ( pdfType == 2 )
+    
 }
 
 
 // Convolution
 double NLOKernelPhenoPDFConvolution(double x, void * p)
 {
-  convolParams * cp = (convolParams *)p;
-  // Friendly local copies
-#ifndef QPLUS
-  double alpha = (cp->p.alpha);
-  double beta = (cp->p.beta);
-  double normalization = betaFn(alpha+1,beta+1);
-#elif defined QPLUS
-  double normP = (cp->p.normP);
-  double alphaP = (cp->p.alphaP);
-  double betaP = (cp->p.betaP);
-#endif
-
-  // Allow for conditional fitting of alphaS at compile time
-#ifdef FITALPHAS
-  double alphaS = (cp->p.alphaS);
-#endif
-  double ioffeTime = (cp->nu);
-  int z = (cp->z);
-
-
+  convolParams_t * cp = (convolParams_t *)p;
   /*
-     Return normalized PDF N^-1 * x^alpha * (1-x)^beta
-     convolved with perturbative NLO kernel or Cosine/Sine
-     */
+    Return PDF (potentially normalized via beta fns)
+    convolved with perturbative NLO kernel or Cosine/Sine
+  */
 #ifdef CONVOLK
 #warning "Kernel will be NLO matching kernel  --  assuming pITD data will be fit"
 #warning "!!!Imaginary pITD --> PDF kernel not ready!!!"
-#ifdef FITALPHAS
-  return NLOKernel(x,ioffeTime,z,alphaS)*(1/normalization)*pow(x,alpha)*pow(1-x,beta);
-#else
-  return NLOKernel(x,ioffeTime,z)*(1/normalization)*pow(x,alpha)*pow(1-x,beta);
-#endif
+  if ( pdfType == 1 )
+    return NLOKernel(x,cp->nu,cp->z)*cp->p.pdfEval(x);    // (1/normalization)*pow(x,alpha)*pow(1-x,beta);
 #endif
 
 #ifdef CONVOLC
-#ifndef QPLUS
-#warning "Kernel for qv will be cos(x\nu) --  assuming ITD data will be fit!"
-  return cos(x*ioffeTime)*(1/normalization)*pow(x,alpha)*pow(1-x,beta);
-#elif defined QPLUS
-#warning "Kernel for q+ will be sin(x\nu)  --  assuming ITD data will be fit!"
-  return sin(x*ioffeTime)*normP*pow(x,alphaP)*pow(1-x,betaP);
-#endif
+  if ( pdfType == 1 )
+    return cos(x*cp->nu)*cp->p.pdfEval(x); // (1/normalization)*pow(x,alpha)*pow(1-x,beta);
+  if ( pdfType == 2 )
+    return sin(x*cp->nu)*cp->p.pdfEval(x); // normP*pow(x,alphaP)*pow(1-x,betaP);
 #endif
 }
 
@@ -155,8 +149,7 @@ double convolution(pdfFitParams_t& params, double nu, int z)
   */
 
   // Collect and package the parameters to do the convolution
-  convolParams cParams; cParams.p = params;
-  cParams.nu = nu; cParams.z = z;
+  convolParams_t cParams(nu, z, params);
   
 
   // Define the function to integrate - selecting kernel based on passed comp
@@ -200,179 +193,107 @@ double convolution(pdfFitParams_t& params, double nu, int z)
 */
 double chi2Func(const gsl_vector * x, void *data)
 {
-
-  // Get a pointer to the void reducedPITD class
-  reducedPITD * cpyPITD = (reducedPITD *)data;
-#ifndef QPLUS
-  gsl_matrix * invCov = (cpyPITD->invCovR);
-#elif defined QPLUS
-  gsl_matrix * invCov = (cpyPITD->invCovI);
-#endif
-
-  // Get a pointer to the map
-#ifndef QPLUS
-  std::map<int,rPITD> * cpyMap = &(cpyPITD->real.disps);
-#elif defined QPLUS
-  std::map<int,rPITD> * cpyMap = &(cpyPITD->imag.disps);
-#endif
-
-  // // Locally determine Nmom
-  // int Nmom = invCov->size1/cpyPITD->real.disps.size();
-  // std::cout << " NMOM = " << Nmom << std::endl;
+  // Get a pointer to the (void) "thisJack" reducedPITD class instance
+  reducedPITD * ptrJack = (reducedPITD *)data;
+  gsl_matrix * invCov;
+  if ( pdfType == 1 )
+    invCov = (ptrJack->data.invCovR);
+  if ( pdfType == 2 )
+    invCov = (ptrJack->data.invCovI);
 
 
+  // Get the current pdf params
   pdfFitParams_t pdfp;
-#ifndef QPLUS
-  pdfp.alpha = gsl_vector_get(x,0);
-  pdfp.beta = gsl_vector_get(x,1);
-  // Conditionally allow alphaS to be fit at compile time
-#ifdef FITALPHAS
-  pdfp.alphaS = gsl_vector_get(x,2);
-#endif
-#elif defined QPLUS
-  pdfp.normP = gsl_vector_get(x,0);
-  pdfp.alphaP = gsl_vector_get(x,1);
-  pdfp.betaP = gsl_vector_get(x,2);
-#ifdef FITALPHAS
-  pdfp.alphaS = gsl_vector_get(x,3);
-#endif
-#endif
+  switch(pdfType)
+    {
+    case 1: // QVAL
+      pdfp.alpha = gsl_vector_get(x, 0); // alpha
+      pdfp.beta  = gsl_vector_get(x, 1); // beta
 
+      // Switch on higher order jam PDFs
+      switch(nParams)
+        {
+        case 3:
+          pdfp.delta = gsl_vector_get(x, 2); // delta
+        case 4:
+          pdfp.delta = gsl_vector_get(x, 2); // delta
+          pdfp.gamma = gsl_vector_get(x, 3); // gamma
+        }
+      break;
+
+    case 2: // QPLUS
+      pdfp.norm  = gsl_vector_get(x, 0); // N+
+      pdfp.alpha = gsl_vector_get(x, 1); // alpha+
+      pdfp.beta  = gsl_vector_get(x, 2); // beta+
+
+      // Switch on higher order jam PDFs
+      switch(nParams)
+        {
+        case 3:
+          pdfp.delta = gsl_vector_get(x, 3); // delta+
+        case 4:
+          pdfp.delta = gsl_vector_get(x, 3); // delta+
+          pdfp.gamma = gsl_vector_get(x, 4); // gamma+
+        }
+      break;
+    }
+
+
+  /*
+    Initialize chi2 and vectors to store differences between jack data and convolution
+  */
+  double chi2(0.0);
+  gsl_vector *iDiffVec = gsl_vector_alloc(invCov->size1);
+  gsl_vector *jDiffVec = gsl_vector_alloc(invCov->size1);
 
   /*
     Evaluate the kernel for all points and store
+    ALSO
+    Set the difference btwn convolution and jack data
   */
-  // std::cout << "ZMIN chi2 = " << zmin << std::endl;
-  // std::vector<double> convols(Nmom*cpyMap->size());
-  std::vector<double> convols(Nmom*Nz);
-  for ( auto cm = cpyMap->begin(); cm != cpyMap->end(); ++cm )
+  std::vector<double> convols(invCov->size1);
+  for ( auto zz = ptrJack->data.disps.begin(); zz != ptrJack->data.disps.end(); ++zz )
     {
-#pragma omp parallel for num_threads(Nmom)
-      for ( int m = 0; m < Nmom; m++ )
+      for ( auto mm = zz->second.moms.begin(); mm != zz->second.moms.end(); ++mm )
 	{
-	  double nu_tmp = cm->second.ensem.IT[m];
-	  double z_tmp = cm->first;
+	  // The index
+	  int I = std::distance(zz->second.moms.begin(),mm) + zz->first*zz->second.moms.size();
 
 	  double convolTmp;
-	  if ( nu_tmp == 0 ) { convolTmp = 1; }
-	  else { convolTmp = convolution(pdfp,nu_tmp,z_tmp); }
+	  if ( mm->second.IT == 0 )
+	    {
+	      if ( pdfType == 1 )
+		convolTmp = 1;
+	      if ( pdfType == 2 )
+		convolTmp = 0;
+	    }
+	  else
+	    { // n.b. choice of real/imag kernel handled in convolution call
+	      convolTmp = convolution(pdfp,mm->second.IT,zz->first);
+	    }
+	    
+	  // // Pack the convolution of pdf parametrization
+	  // convols[std::distance(zz->second.moms.begin(),mm) + zz->first*zz->second.moms.size()] = convolTmp;
 
-	  convols[m+(cm->first-zmin)*Nmom] = convolTmp;
+	  
+	  if ( pdfType == 1 )
+	    gsl_vector_set(iDiffVec,I,convolTmp - mm->second.mat[0].real());
+	  if ( pdfType == 2 )
+	    gsl_vector_set(iDiffVec,I,convolTmp - mm->second.mat[0].imag());
 
 	}
     }
-
-  //   // Conditionally construct the q+ convols
-  // #ifdef QPLUS
-  //   std::vector<double> convolsI(Nmom*cpyMapI->size());
-  //   for ( auto cm = cpyMapI->begin(); cm != cpyMapI->end(); ++cm )
-  //   {
-  // #pragma omp parallel for num_threads(6)
-  //     for ( int m = 0; m < Nmom; m++ )
-  //       {
-  // 	double nu_tmp = cm->second.ensem.IT[m];
-  // 	double z_tmp = cm->first;
-
-  // 	double convolTmp;
-  // 	if ( nu_tmp == 0 ) { convolTmp = 0; }
-  // 	else { convolTmp = convolution(pdfp,nu_tmp,z_tmp); }
-
-  //       }
-  //   }
-  // #endif
-  
-
-
-  /*
-    FOR A SLOW MAN'S EVALUATION OF THE CONVOLUTION
-  */
-  // for ( int a = 0; a < Nz; a++ )
-  //   {
-  //     for ( int m = 0; m < Nmom; m++ )
-  // 	{
-  // 	  double nu_tmp = (*cpyMapR)[a].ensem.IT[m];
-  // 	  double z_tmp = a;
-
-  // 	  double convolTmp;
-  // 	  if ( nu_tmp == 0 ) { convolTmp = 1; }
-  // 	  else { convolTmp = convolution(pdfp,nu_tmp,z_tmp); }
-
-  // 	  convols[m+a*Nmom]=convolTmp;
-  // 	}
-  //   }
-  // // END OF THE SLOW MAN'S EVALUATION
-  
-  double chi2(0.0);
-  gsl_vector *iDiffVec = gsl_vector_alloc(Nmom*Nz);//cpyMap->size());
-  gsl_vector *jDiffVec = gsl_vector_alloc(Nmom*Nz);//cpyMap->size());
-
-  for ( auto d1 = cpyMap->begin(); d1 != cpyMap->end(); ++d1 )
-    {
-#pragma omp parallel for num_threads(Nmom)
-      for ( int m1 = 0; m1 < Nmom; m1++ )
-	{
-	  int I = m1 + (d1->first - zmin)*Nmom;
-
-	  gsl_vector_set(iDiffVec,I,convols[I] - d1->second.ensem.avgM[m1]);
-	}
-    }
-
-  /*
-    FOR A SLOW MAN'S SETTING OF DIFFERENCE VECTOR BETWEEN CONVOLUTION AND DATA
-  */
-  // for ( int d = 0; d < Nz; d++ )
-  //   {
-  //     for ( int m1 = 0; m1 < Nmom; m1++ )
-  // 	{
-  // 	  int I = m1+d*Nmom;
-  // 	  gsl_vector_set(iDiffVec,I,convols[I]-(*cpyMapR)[d].ensem.avgM[m1]);
-  // 	}
-  //   }
-  // // END OF THE SLOW MAN'S DIFFERENCE VECTOR SETTING
 
 
   // The difference vector need only be computed once, so make a second copy to form correlated chi2
   gsl_vector_memcpy(jDiffVec,iDiffVec);
 
   // Initialize cov^-1 right multiplying jDiffVec
-  gsl_vector *invCovRightMult = gsl_vector_alloc(Nmom*Nz);//cpyMap->size());
+  gsl_vector *invCovRightMult = gsl_vector_alloc(invCov->size1);
   gsl_blas_dgemv(CblasNoTrans,1.0,invCov,jDiffVec,0.0,invCovRightMult);
 
   // Form the scalar dot product of iDiffVec & result of invCov x jDiffVec
   gsl_blas_ddot(iDiffVec,invCovRightMult,&chi2);
-
-
-  //   // Conditionally repeat chi2 determination for imaginary data
-  //   // For now reusing gsl_vector/matrix pointers, by assuming real/imag use same number of zseps
-  // #ifdef QPLUS
-  //   for ( auto d1 = cpyMapI->begin(); d1 != cpyMapI->end(); ++d1 )
-  //     {
-  // #pragma omp parallel for num_threads(Nmom)
-  //       for ( int m1 = 0; m1 < Nmom; m1++ )
-  // 	{
-  // 	  gsl_vector_set(iDiffVec,I,convolsI[I] - d1->second.ensem.avgM[m1]);
-  // 	}
-  //     }
-  
-  //   gsl_vector_memcpy(jDiffVec,iDiffVec);
-  //   gsl_blas_dgemv(CblasNoTrans,1.0,invCovI,jDiffVec,0.0,invCovRightMult);
-  //   gsl_blas_ddot(iDiffVec,invCovRightMult,&chi2I);
-  // #endif
-
-
-
-  /*
-    BRUTE FORCE TALLEY THE CHI2
-  */
-  // for ( int i = 0; i < Nmom*Nz; i++ )
-  //   {
-  //     for ( int j = 0; j < Nmom*Nz; j++ )
-  // 	{
-
-  // 	  chi2+=gsl_vector_get(iDiffVec,i)*gsl_matrix_get(invCov,i,j)*gsl_vector_get(jDiffVec,j);
-  // 	}
-  //   }
-
 
 
   // Free some memory
@@ -384,25 +305,19 @@ double chi2Func(const gsl_vector * x, void *data)
   // // Sum the real/imag chi2 always, where chi2 imag may be zero if QPLUS is not defined
   // chi2=chi2R+chi2I;
 
-#ifndef QPLUS
+
 #ifdef CONSTRAINED
   /*
     CHECK FOR VALUES OF {ALPHA,BETA} OUTSIDE ACCEPTABLE RANGE AND INFLATE CHI2
   */
   if ( pdfp.alpha < pdfp.alphaRestrict.first || pdfp.alpha > pdfp.alphaRestrict.second )
-    {
-      chi2+=1000000;
-    }
+    chi2+=1000000;
   if ( pdfp.beta < pdfp.betaRestrict.first || pdfp.beta > pdfp.betaRestrict.second )
-    {
-      chi2+=1000000;
-    }
-#endif
+    chi2+=1000000;
 #endif
 
   return chi2;
 }
-#endif
 
 
 int main( int argc, char *argv[] )
@@ -435,7 +350,7 @@ int main( int argc, char *argv[] )
   //  ss << argv[1]; ss >> alphaP_i; ss.clear(); ss.str(std::string());
   //  ss << argv[2]; ss >> betaP_i;  ss.clear(); ss.str(std::string());
   // #endif
-  int gauge_configs, jkStart, jkEnd, nParams, pdfType;
+  int gauge_configs, jkStart, jkEnd; // , nParams, pdfType;
   
   std::string matelemType;
   enum PDFs { QVAL, QPLUS };
@@ -494,7 +409,7 @@ int main( int argc, char *argv[] )
   reducedPITD distribution = reducedPITD(gauge_configs);
 
   // Read from H5 file
-  H5Read(argv[3],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"itd"); // pitd
+  H5Read(argv[3],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"pitd"); // pitd
 
   /*
     Determine full data covariance
@@ -548,7 +463,7 @@ int main( int argc, char *argv[] )
     SET THE STARTING PARAMETER VALUES AND INITIAL STEP SIZES ONCE
   */
   gsl_vector *pdfp_ini, *pdfpSteps;
-  pdfFitParams_t dumPfp(0.0,-0.3,2.5,0.0,0.0); // collect the master starting values
+  pdfFitParams_t dumPfp(false,-0.3,2.5,0.0,0.0); // collect the master starting values
 
 
   switch(pdfType)
@@ -593,8 +508,7 @@ int main( int argc, char *argv[] )
       break;
     }
 
-  // HERE
-#if 0
+
   /*
     INITIALIZE THE SOLVER HERE, SO REPEATED CALLS TO SET, RETURN A NEW NMRAND2 SOLVER
   */
@@ -611,39 +525,63 @@ int main( int argc, char *argv[] )
   /*
     LOOP OVER ALL JACKKNIFE SAMPLES AND DO THE FIT - ITERATING UNTIL COMPLETION
   */
-  for ( auto itJ = jack.begin() + jkStart; itJ <= jack.begin() + jkEnd; ++itJ )
+  for ( int itJ = 0; itJ < gauge_configs; itJ++ )
     {
       // Time the duration of this fit
       auto jackTimeStart = std::chrono::steady_clock::now();
 
-      // Hold a counter of which jackknife sample
-      int JackNum = itJ - jack.begin();
 
-      // Assign the full data covariance
-#ifndef QPLUS
-      itJ->invCovR = invCov;
-#elif defined QPLUS
-      itJ->invCovI = invCovP;
-#endif
+      /*
+	BEGIN EXTRACTION OF INFO FOR THIS JACKKNIFE
+      */
+      // Instantiate a reducedPITD object for this jackknife
+      reducedPITD thisJack;
+      thisJack.data.invCovR = distribution.data.invCovR;
+      thisJack.data.invCovI = distribution.data.invCovI;
+      // Extract
+      for ( auto z = distribution.data.disps.begin(); z != distribution.data.disps.end(); ++z )
+	{
+	  // Extract the jackknife value and associate with a momentum
+	  zvals jackMoms;
+	  for ( auto m = z->second.moms.begin(); m != z->second.moms.end(); ++m )
+	    {
+	      // A momVals for this jackknife
+	      momVals jMomVals; jMomVals.mat.resize(1);
+	      jMomVals.IT     = m->second.IT;
+	      jMomVals.mat[0] = m->second.mat[itJ];
 
+	      std::pair<std::string, momVals> amomJack (m->first, jMomVals);
+	      jackMoms.moms.insert(amomJack);
+	    } // end auto m
+
+	  // Pack all of the jackMoms into this jackknife jDisps map
+	  std::pair<int, zvals> azJack(z->first, jackMoms);
+	  thisJack.data.disps.insert(azJack);
+	} // end auto z
+      /*
+	DONE EXTRACTING INFO FOR THIS JACKKNIFE
+      */
+    
+
+  
       // Define the gsl_multimin_function
       gsl_multimin_function Chi2;
       // Dimension of the system
       Chi2.n = pdfp_ini->size;
       // Function to minimize
       Chi2.f = &chi2Func;
-      Chi2.params = &(*itJ);
-      
-      
+      Chi2.params = &thisJack;
+  
+  
       std::cout << "Establishing initial state for minimizer..." << std::endl;
       // Set the state for the minimizer
       // Repeated call the set function to ensure nelder-mead random minimizer
       // starts w/ a different random simplex for each jackknife sample
       int status = gsl_multimin_fminimizer_set(fmin,&Chi2,pdfp_ini,pdfpSteps);
-
+  
       std::cout << "Minimizer established..." << std::endl;
-      
-
+  
+  
       // Iteration count
       int k = 1;
       double tolerance = 0.0000001; // 0.0001
@@ -658,21 +596,13 @@ int main( int argc, char *argv[] )
 	  // Iterate
 	  gsl_multimin_fminimizer_iterate(fmin);
 	  
-	  std::cout << "Current params  (" << JackNum << "," << k << ") ::" << std::setprecision(14)
-#ifndef QPLUS
+	  std::cout << "Current params  (" << itJ << "," << k << ") ::" << std::setprecision(14)
 		    << "   alpha (qv) = " << gsl_vector_get(gsl_multimin_fminimizer_x(fmin),0)
 		    << "   beta (qv) = " << gsl_vector_get(gsl_multimin_fminimizer_x(fmin),1)
-#ifdef FITALPHAS
-		    << "   alpha_s (qv) = " << gsl_vector_get(gsl_multimin_fminimizer_x(fmin),2)
-#endif
-#endif
 #ifdef QPLUS
 		    << "   N (q+) = " << gsl_vector_get(gsl_multimin_fminimizer_x(fmin),0)
 		    << "   alpha (q+) = " << gsl_vector_get(gsl_multimin_fminimizer_x(fmin),1)
 		    << "   beta (q+) = " << gsl_vector_get(gsl_multimin_fminimizer_x(fmin),2)
-#ifdef FITALPHAS
-		    << "   alpha_s (q+) = " << gsl_vector_get(gsl_multimin_fminimizer_x(fmin),3)
-#endif
 #endif
 		    << std::endl;
 	  
@@ -688,49 +618,31 @@ int main( int argc, char *argv[] )
       // Return the best correlated Chi2
       double chiSq = gsl_multimin_fminimizer_minimum(fmin);
       // Determine the reduced chi2
-#ifndef QPLUS
-      double reducedChiSq = chiSq / (Nmom*ensem->real.disps.size() - pdfp_ini->size - svsBelowCut);
-#else
-      double reducedChiSq = chiSq / (Nmom*ensem->imag.disps.size() - pdfp_ini->size - svsBelowCutP );
-#endif
+      double reducedChiSq;
+      if ( pdfType == 1 )
+	reducedChiSq = chiSq / (distribution.data.covR->size1 - pdfp_ini->size - distribution.data.svsFullR);
+      if ( pdfType == 2 )
+	reducedChiSq = chiSq / (distribution.data.covI->size1 - pdfp_ini->size - distribution.data.svsFullI);
 
       
       
-      std::cout << " For jackknife sample J = " << JackNum << ", Converged after " << k
+      std::cout << " For jackknife sample J = " << itJ << ", Converged after " << k
 		<<" iterations, Optimal Chi2/dof = " << reducedChiSq << std::endl;
-#ifndef QPLUS
       std::cout << std::setprecision(6) << "  alpha (qv) =  " << gsl_vector_get(bestFitParams,0) << std::endl;
       std::cout << std::setprecision(6) << "  beta (qv) =  " << gsl_vector_get(bestFitParams,1) << std::endl;
-#ifdef FITALPHAS
-      std::cout << std::setprecision(6) << "  alpha_s (qv) =  " << gsl_vector_get(bestFitParams,2) << std::endl;
-#endif
-#endif
+
 #ifdef QPLUS
       std::cout << std::setprecision(6) << "  N (q+) =  " << gsl_vector_get(bestFitParams,0) << std::endl;
       std::cout << std::setprecision(6) << "  alpha (q+) =  " << gsl_vector_get(bestFitParams,1) << std::endl;
       std::cout << std::setprecision(6) << "  beta (q+) =  " << gsl_vector_get(bestFitParams,2) << std::endl;
-#ifdef FITALPHAS
-      std::cout << std::setprecision(6) << "  alpha_s (q+) =  " << gsl_vector_get(bestFitParams,3) << std::endl;
-#endif
 #endif
       
-      // Write the fit results to a file
-      OUT << std::setprecision(10) << reducedChiSq << " "
-	  << gsl_vector_get(bestFitParams,0) << " " << gsl_vector_get(bestFitParams,1) << " "
-#ifndef QPLUS
-#ifdef FITALPHAS
-	  << gsl_vector_get(bestFitParams,2)
-#endif
-#endif
-#ifdef QPLUS
-	  << gsl_vector_get(bestFitParams,2) << " "
-#ifdef FITALPHAS
-	  << gsl_vector_get(bestFitParmas,3)
-#endif
-#endif
-	  << "\n";
+      // // Write the fit results to a file
+      // OUT << std::setprecision(10) << reducedChiSq << " "
+      // 	  << gsl_vector_get(bestFitParams,0) << " " << gsl_vector_get(bestFitParams,1) << " "
+      // 	  << "\n";
 
-      OUT.flush();
+      // OUT.flush();
 
       // // Free memory
       // gsl_vector_free(bestFitParams);
@@ -739,13 +651,14 @@ int main( int argc, char *argv[] )
       // Determine/print the total time for this fit
       auto jackTimeEnd = std::chrono::steady_clock::now();
       std::chrono::duration<double> elapsed_seconds = jackTimeEnd-jackTimeStart;
-      std::cout << "           --- Time to complete jackknife fit " << JackNum << "  =  " << elapsed_seconds.count() << "s\n";
+      std::cout << "           --- Time to complete jackknife fit "
+		<< itJ << "  =  " << elapsed_seconds.count() << "s\n";
       
     } // End loop over jackknife samples
   
 
   // Close the output file containing jack fit results
   OUT.close();
-#endif
+
   return 0;
 }

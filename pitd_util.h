@@ -60,7 +60,7 @@ namespace PITD
     double                             IT;
     std::vector<std::complex<double> > mat;
     std::complex<double>               matAvg;
-  momVals(int _g = 0) : mat(_g) {};
+  momVals(int g_ = 1) : mat(g_) {}
   };
 
 
@@ -127,6 +127,12 @@ namespace PITD
     void viewZCovMat(int zsep);
     // View inverse of a covariance matrix
     void viewZCovInvMat(int zsep);
+
+
+    /*
+      Isolate a single jackknife sample
+    */
+
     
   private:
     int gauge_configs;

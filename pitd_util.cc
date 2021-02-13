@@ -346,7 +346,7 @@ namespace PITD
 
     // Other group headings w/in h5 file
     const char * const momenta[] = {"pz0","pz1","pz2","pz3","pz4","pz5","pz6"};
-    const char * const comp[] = {"1","2"}; // {"Re", "Im"}; // {"1","2"};
+    const char * const comp[] = {"Re", "Im"}; // {"1","2"};
     const char * const zsep[] = {"zsep0","zsep1","zsep2","zsep3","zsep4","zsep5","zsep6","zsep7","zsep8",
 				 "zsep9","zsep10","zsep11","zsep12","zsep13","zsep14","zsep15","zsep16"};
 
@@ -415,6 +415,9 @@ namespace PITD
 		// Get the component handle
 		hid_t h5Comp = H5Gopen(h5Jack,comp[c], H5P_DEFAULT);
 		
+
+		std::cout << "/b_b0xDA__J0_A1pP/" << zsep[z] << "/" << momenta[m]
+			  << "jack/" << comp[c] << "/" << dTypeName << std::endl;
 		
 		// // Get the zsep handle
 		// hid_t h5Zsep = H5Gopen(h5Comp, zsep[z], H5P_DEFAULT);
