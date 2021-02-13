@@ -410,7 +410,7 @@ int main( int argc, char *argv[] )
   
   if ( argc != 12 )
     {
-      std::cout << "Usage: $0 <PDF (QVAL -or- QPLUS)> <nparam fit> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin> <zmax> <pmin> <pmax>" << std::endl;
+      std::cout << "Usage: $0 <PDF (1 [QVAL] -or- 2 [QPLUS])> <nparam fit> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin> <zmax> <pmin> <pmax>" << std::endl;
       // std::cout << "Usage: $0 <alpha_i> <beta_i> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin> <zmax> <pmin> <pmax>" << std::endl;
       exit(1);
     }
@@ -548,50 +548,53 @@ int main( int argc, char *argv[] )
     SET THE STARTING PARAMETER VALUES AND INITIAL STEP SIZES ONCE
   */
   gsl_vector *pdfp_ini, *pdfpSteps;
+  pdfFitParams_t dumPfp(0.0,-0.3,2.5,0.0,0.0); // collect the master starting values
+
 
   switch(pdfType)
     {
-    case QVAL:
+    case 1: // QVAL
       pdfp_ini  = gsl_vector_alloc(nParams);
       pdfpSteps = gsl_vector_alloc(nParams);
-      for ( int s = 0; s < nParams; s++ )
-	{
-	  gsl_vector_set(pdfp_ini, s, pdfFitParams_t().alpha);
-	}
+      for ( int s = 0; s < nParams; s++ ) { gsl_vector_set(pdfpSteps, s, 0.1); }
 
-    case QPLUS:
+      gsl_vector_set(pdfp_ini, 0, dumPfp.alpha); // alpha
+      gsl_vector_set(pdfp_ini, 1, dumPfp.beta);  // beta
+
+      // Switch on higher order jam PDFs
+      switch(nParams)
+	{
+	case 3:
+	  gsl_vector_set(pdfp_ini, 2, dumPfp.delta); // delta
+	case 4:
+	  gsl_vector_set(pdfp_ini, 2, dumPfp.delta); // delta
+	  gsl_vector_set(pdfp_ini, 3, dumPfp.gamma); // gamma
+	}
+      break;
+
+    case 2: // QPLUS
       pdfp_ini  = gsl_vector_alloc(nParams+1);
       pdfpSteps = gsl_vector_alloc(nParams+1);
+      for ( int s = 0; s < nParams; s++ ) { gsl_vector_set(pdfpSteps, s, 0.1); }
+
+      gsl_vector_set(pdfp_ini, 0, dumPfp.norm);  // N+
+      gsl_vector_set(pdfp_ini, 1, dumPfp.alpha); // alpha+
+      gsl_vector_set(pdfp_ini, 2, dumPfp.beta);  // beta+
+
+      // Switch on higher order jam PDFs
+      switch(nParams)
+	{
+	case 3:
+	  gsl_vector_set(pdfp_ini, 3, dumPfp.delta); // delta+
+	case 4:
+	  gsl_vector_set(pdfp_ini, 3, dumPfp.delta); // delta+
+	  gsl_vector_set(pdfp_ini, 4, dumPfp.gamma); // gamma+
+	}
+      break;
     }
 
-  // std::cout << pdfp_ini->size() << std::endl;
-  std::cout << gsl_vector_get(pdfp_ini,0) << std::endl;
-
-
-
+  // HERE
 #if 0
-  /*
-    QVALENCE START
-  */
-#ifndef QPLUS
-#ifdef FITALPHAS
-  gsl_vector *pdfp_ini = gsl_vector_alloc(3);
-  gsl_vector *pdfpSteps = gsl_vector_alloc(3);
-
-  gsl_vector_set(pdfp_ini,2,alpha_s_i);  // ALPHA_S
-  gsl_vector_set(pdfpSteps,2,0.1);
-#else
-  gsl_vector *pdfp_ini = gsl_vector_alloc(2);
-  gsl_vector *pdfpSteps = gsl_vector_alloc(2);
-#endif
-  gsl_vector_set(pdfp_ini,0,alpha_i);    // q valence ALPHA
-  gsl_vector_set(pdfp_ini,1,beta_i);     // q valence BETA
-  // Set initial step sizes in parameter space
-  gsl_vector_set(pdfpSteps,0,0.05);      // q valence ALPHA step
-  gsl_vector_set(pdfpSteps,1,0.3);       // q valence BETA step
-#endif
-
-
   /*
     INITIALIZE THE SOLVER HERE, SO REPEATED CALLS TO SET, RETURN A NEW NMRAND2 SOLVER
   */
