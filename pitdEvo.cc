@@ -309,7 +309,7 @@ int main( int argc, char *argv[] )
   /*
     ACCESS FULL DATASET OF FITTED IOFFE-TIME PSEUDO-STRUCTURE FUNCTIONS
   */
-  H5Read(argv[2], &rawPseudo, gauge_configs, zmin, zmax, pmin, pmax);
+  H5Read(argv[2], &rawPseudo, gauge_configs, zmin, zmax, pmin, pmax, "pitd");
 
   /*
     ACCESS THE Z^2 POLYNOMIAL FIT PARAMETERS FOR ALL JACKKNIFE SAMPLES
