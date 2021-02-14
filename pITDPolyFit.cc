@@ -53,10 +53,7 @@ double chi2Func(const gsl_vector * x, void *data)
 
 
   // The current fit parameters
-  polyFitParams_t poly;
-  poly.a = gsl_vector_get(x,0);
-  poly.b = gsl_vector_get(x,1);
-  poly.c = gsl_vector_get(x,2);
+  polyFitParams_t poly(gsl_vector_get(x,0), gsl_vector_get(x,1), gsl_vector_get(x,2));
   // poly.d = gsl_vector_get(x,3);
 
   // Evaluate the polynomial for these fit params at each Ioffe-time
@@ -152,7 +149,7 @@ int main( int argc, char *argv[] )
   reducedPITD rawPseudo(gauge_configs);
 
 
-  H5Read(argv[1], &rawPseudo, gauge_configs, zmin, zmax, pmin, pmax);
+  H5Read(argv[1], &rawPseudo, gauge_configs, zmin, zmax, pmin, pmax, "pitd");
 
   // for ( int J = 0 ; J < gauge_configs; J++ )
   //   {
