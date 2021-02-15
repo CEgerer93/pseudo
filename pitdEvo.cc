@@ -29,6 +29,7 @@
 using namespace PITD;
 
 
+
 // Structure to hold all needed parameters to perform convolution of DGLAP kernel and polyfit of reduced pITD
 struct convolParams_t
 {
@@ -36,7 +37,7 @@ struct convolParams_t
   int z, comp;
   polyFitParams_t p;
   // Constructor with initializer list
-  convolParams_t(polyFitParams_t _p, double _n, double _m, int _z, int _c) : p(_p), nu(_n), matelem(_m),
+  convolParams_t(polyFitParams_t _p, double _n, double _m, int _z, int _c) : p{_p}, nu(_n), matelem(_m),
 									     z(_z), comp(_c) {}
 };
 
@@ -425,7 +426,11 @@ int main( int argc, char *argv[] )
 		  evoKernel.data.disps[zi->first].moms[mi->first].mat[ji] = dglap; //.push_back(dglap);
 		  matchingKernel.data.disps[zi->first].moms[mi->first].mat[ji] = match; //.push_back(match);
 		  theITD.data.disps[zi->first].
-		    moms[mi->first].mat[ji] = mi->second.mat[ji] + ((alphaS*Cf)/(2*M_PIl))*(dglap+match);
+		    moms[mi->first].mat[ji] = mi->second.mat[ji] + ((alphaS*Cf)/(2*M_PI))*(dglap+match);
+
+		  // std::cout << "PRIOR = " << mi->second.mat[ji] << std::endl;
+		  // std::cout << "RESULT = " << mi->second.mat[ji] + ((alphaS*Cf)/(2*M_PI))*(dglap+match)
+		  // 	    << std::endl;
 
     		} // if-else
 

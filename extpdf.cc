@@ -70,11 +70,11 @@ struct pdfFitParams_t
   double pdfEval(double x)
   {
     if ( nParams == 2 )
-      return norm * pow(x,alpha) * (1-x,beta);
+      return norm * pow(x,alpha) * pow(1-x,beta);
     if ( nParams == 3 )
-      return norm * pow(x,alpha) * (1-x,beta) * (1 + delta*x);
+      return norm * pow(x,alpha) * pow(1-x,beta) * (1 + delta*x);
     if ( nParams == 4 )
-      return norm * pow(x,alpha) * (1-x,beta) * (1 + gamma*sqrt(x) + delta*x);
+      return norm * pow(x,alpha) * pow(1-x,beta) * (1 + gamma*sqrt(x) + delta*x);
   }
 
   // Default/Parametrized constructor w/ initializer lists
@@ -95,7 +95,7 @@ struct convolParams_t
   pdfFitParams_t p;
   double nu;
   int z;
-  convolParams_t(double _nu, int _z, pdfFitParams_t _p) : nu(_nu), z(_z) { p = _p; }
+  convolParams_t(double _nu, int _z, pdfFitParams_t&_p) : nu(_nu), z(_z) { p = _p; }
 };
 
 
@@ -105,8 +105,8 @@ double NLOKernel(double x, double ioffeTime, int z)
 {
   double xnu = x * ioffeTime;
   if ( pdfType == 1 )
-    return cos(xnu)-(alphaS/(2*M_PIl))*Cf*(log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) )
-					   *tildeBKernel(xnu)+tildeDKernel(xnu)  );
+    return cos(xnu)-(alphaS/(2*M_PI))*Cf*(log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) )
+					  *tildeBKernel(xnu)+tildeDKernel(xnu)  );
   // if ( pdfType == 2 )
     
 }
@@ -131,6 +131,9 @@ double NLOKernelPhenoPDFConvolution(double x, void * p)
   if ( pdfType == 1 )
     return cos(x*cp->nu)*cp->p.pdfEval(x); // (1/normalization)*pow(x,alpha)*pow(1-x,beta);
   if ( pdfType == 2 )
+    std::cout << "     IN NLO :: x = " << x << "   PDF [ " << cp->p.alpha << ", " << cp->p.beta
+	      << ", " << cp->p.gamma << ", " << cp->p.delta << ", " << cp->p.norm << "]  = "
+	      << cp->p.pdfEval(x) << std::endl;
     return sin(x*cp->nu)*cp->p.pdfEval(x); // normP*pow(x,alphaP)*pow(1-x,betaP);
 #endif
 }
@@ -200,43 +203,60 @@ double chi2Func(const gsl_vector * x, void *data)
     invCov = (ptrJack->data.invCovR);
   if ( pdfType == 2 )
     invCov = (ptrJack->data.invCovI);
+  // Potentially zero out off-diagonal terms for an uncorrelated fit
+#ifdef UNCORRELATED
+  for ( int i = 0; i < invCov->size1; i++ )
+    {
+      for ( int j = 0; j < invCov->size1; j++ )
+	{
+	  if ( i != j )
+	    gsl_matrix_set(invCov,i,j,0.0);
+	}
+    }
+#endif
 
 
   // Get the current pdf params
-  pdfFitParams_t pdfp;
+  double dumA(0.0), dumB(0.0), dumG(0.0), dumD(0.0);
+  double norm(0.0);
+  bool dumNorm;
   switch(pdfType)
     {
     case 1: // QVAL
-      pdfp.alpha = gsl_vector_get(x, 0); // alpha
-      pdfp.beta  = gsl_vector_get(x, 1); // beta
+      dumNorm = false;
+      dumA = gsl_vector_get(x, 0); // alpha
+      dumB  = gsl_vector_get(x, 1); // beta
 
       // Switch on higher order jam PDFs
       switch(nParams)
         {
         case 3:
-          pdfp.delta = gsl_vector_get(x, 2); // delta
+          dumD = gsl_vector_get(x, 2); // delta
         case 4:
-          pdfp.delta = gsl_vector_get(x, 2); // delta
-          pdfp.gamma = gsl_vector_get(x, 3); // gamma
+          dumD = gsl_vector_get(x, 2); // delta
+          dumG = gsl_vector_get(x, 3); // gamma
         }
       break;
 
     case 2: // QPLUS
-      pdfp.norm  = gsl_vector_get(x, 0); // N+
-      pdfp.alpha = gsl_vector_get(x, 1); // alpha+
-      pdfp.beta  = gsl_vector_get(x, 2); // beta+
+      dumNorm = true;
+      norm  = gsl_vector_get(x, 0); // N+
+      dumA = gsl_vector_get(x, 1); // alpha+
+      dumB  = gsl_vector_get(x, 2); // beta+
 
       // Switch on higher order jam PDFs
       switch(nParams)
         {
         case 3:
-          pdfp.delta = gsl_vector_get(x, 3); // delta+
+          dumD = gsl_vector_get(x, 3); // delta+
         case 4:
-          pdfp.delta = gsl_vector_get(x, 3); // delta+
-          pdfp.gamma = gsl_vector_get(x, 4); // gamma+
+          dumD = gsl_vector_get(x, 3); // delta+
+          dumG = gsl_vector_get(x, 4); // gamma+
         }
       break;
     }
+  // Now set the pdf params within a pdfFitParams_t struct instance
+  pdfFitParams_t pdfp(dumNorm, dumA, dumB, dumG, dumD);
 
 
   /*
@@ -254,6 +274,7 @@ double chi2Func(const gsl_vector * x, void *data)
   std::vector<double> convols(invCov->size1);
   for ( auto zz = ptrJack->data.disps.begin(); zz != ptrJack->data.disps.end(); ++zz )
     {
+// #pragma omp parallel for
       for ( auto mm = zz->second.moms.begin(); mm != zz->second.moms.end(); ++mm )
 	{
 	  // The index
@@ -409,7 +430,7 @@ int main( int argc, char *argv[] )
   reducedPITD distribution = reducedPITD(gauge_configs);
 
   // Read from H5 file
-  H5Read(argv[3],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"pitd"); // pitd
+  H5Read(argv[3],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"itd"); // pitd
 
   /*
     Determine full data covariance
@@ -463,7 +484,7 @@ int main( int argc, char *argv[] )
     SET THE STARTING PARAMETER VALUES AND INITIAL STEP SIZES ONCE
   */
   gsl_vector *pdfp_ini, *pdfpSteps;
-  pdfFitParams_t dumPfp(false,-0.3,2.5,0.0,0.0); // collect the master starting values
+  pdfFitParams_t dumPfp(false,-0.1,2,0.0,0.0); // collect the master starting values
 
 
   switch(pdfType)
@@ -520,7 +541,10 @@ int main( int argc, char *argv[] )
   // const gsl_multimin_fminimizer_type *minimizer = gsl_multimin_fminimizer_nmsimplex2;
   gsl_multimin_fminimizer * fmin = gsl_multimin_fminimizer_alloc(minimizer,pdfp_ini->size);
 
-
+  if ( pdfType == 1 )
+    std::cout << "Performing " << nParams << " parameter fit to QVAL" << std::endl;
+  if ( pdfType == 2 )
+    std::cout << "Performing " << nParams << " parameter fit to QPLUS" << std::endl;
 
   /*
     LOOP OVER ALL JACKKNIFE SAMPLES AND DO THE FIT - ITERATING UNTIL COMPLETION
