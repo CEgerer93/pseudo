@@ -302,6 +302,43 @@ namespace PITD
     data.invCovI = dumInvsMap.begin()->second;
   }
 
+  /*
+    Cut on Z's and P's to exclude from fit
+  */
+  void reducedPITD::cutOnPZ(int minz, int maxz, int minp, int maxp)
+  {
+    for ( std::map<int, zvals>::iterator di = data.disps.begin(); di != data.disps.end(); ++di )
+      {
+        for ( std::map<std::string, momVals>::const_iterator mi = di->second.moms.begin();
+              mi != di->second.moms.end(); mi++ )
+          {
+            // Get the Ith index
+            int I = std::distance<std::map<std::string, momVals>::const_iterator>
+              (di->second.moms.begin(), mi) + di->first*di->second.moms.size();
+
+            for ( auto dj = data.disps.begin(); dj != data.disps.end(); ++dj )
+              {
+                for ( auto mj = dj->second.moms.begin(); mj != dj->second.moms.end(); mj++ )
+                  {
+                    // Get the Jth index
+                    int J = std::distance(dj->second.moms.begin(), mj) + dj->first*dj->second.moms.size();
+
+
+		    if ( di->first < minz || di->first > maxz || 
+			 atoi(&mi->first[2]) < minp || atoi(&mi->first[2]) > maxp )
+		      gsl_matrix_set(data.invCovR, I, J, 0.0);
+		    else if ( dj->first < minz || dj->first > maxz ||
+			      atoi(&mj->first[2]) < minp || atoi(&mj->first[2]) > maxp )
+		      gsl_matrix_set(data.invCovI, I, J, 0.0);
+		    else
+		      continue;
+
+		  } // mj
+	      } // dj
+	  } // mi
+      } // di
+  }
+
 
   /*
     View a covariance matrix

@@ -123,6 +123,9 @@ namespace PITD
     void calcCov();
     void calcInvCov();
 
+    // Cut on Z's and P's to exclude from fit
+    void cutOnPZ(int minz, int maxz, int minp, int maxp);
+
     // View a covariance matrix
     void viewZCovMat(int zsep);
     // View inverse of a covariance matrix

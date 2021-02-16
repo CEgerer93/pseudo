@@ -40,20 +40,23 @@
 #include "pitd_util.h"
 #include "kernel.h"
 
-// Default values of p & z to cut on
-int zmin,zmax,pmin,pmax,Nmom,Nz;
 
-#define ReIm 2
 // If we are building st. alpha_s is not a fitted parameter, then set a value here
 #ifndef FITALPHAS
 #define alphaS 0.303
 #endif
 
+// Macros for maximum z and p in computed data
+#define DATMAXZ 8
+#define DATMAXP 6
+
 
 using namespace PITD;
 
 
-int nParams, pdfType;
+// Default values of p & z to cut on
+int zmin,zmax,pmin,pmax;
+int nParams, pdfType; // Determine pdf to fit & # params
 
 /*
   Parameters describing pheno PDF fit
@@ -61,6 +64,7 @@ int nParams, pdfType;
 struct pdfFitParams_t
 {
   double norm, alpha, beta, gamma, delta;
+  std::map<int, std::string> pmap; // map to print fit parameter string and values during fit
 
   // Set barriers
   std::pair<int,int> alphaRestrict = std::make_pair(-1,1);
@@ -77,15 +81,28 @@ struct pdfFitParams_t
       return norm * pow(x,alpha) * pow(1-x,beta) * (1 + gamma*sqrt(x) + delta*x);
   }
 
+  // Print the current fit values
+  void printFit(gsl_vector *v)
+  {
+    for ( auto p = pmap.begin(); p != pmap.end(); ++p )
+      std::cout << std::setprecision(10) << "  " << p->second << " =  " << gsl_vector_get(v,p->first);
+    std::cout << "\n";
+  }
+
   // Default/Parametrized constructor w/ initializer lists
   // pdfFitParams_t() : norm(1.0), alpha(-0.3), beta(2.5), gamma(0.0), delta(0.0) {}
   pdfFitParams_t(bool _floatNorm = false, double _a = -0.3, double _b = 2.5, double _g = 0.0,
 		 double _d = 0.0) : alpha(_a), beta(_b), gamma(_g), delta(_d)
   {
     if ( !_floatNorm )
-      norm = 1.0/( betaFn(alpha+1,beta+1)+gamma*betaFn(alpha+1.5,beta+1)+delta*betaFn(alpha+2,beta+1) );
+      {
+	norm = 1.0/( betaFn(alpha+1,beta+1)+gamma*betaFn(alpha+1.5,beta+1)+delta*betaFn(alpha+2,beta+1) );
+	pmap[0] = "alpha (qv)";	pmap[1] = "beta (qv)";
+      }
     if ( _floatNorm )
-      norm = 1.0;
+      {
+	norm = 1.0; pmap[0] = "Norm (q+)"; pmap[1] = "alpha (q+)"; pmap[2] = "beta (q+)";
+      }
   }
 };
 
@@ -104,10 +121,10 @@ struct convolParams_t
 double NLOKernel(double x, double ioffeTime, int z)
 {
   double xnu = x * ioffeTime;
-  if ( pdfType == 1 )
+  if ( pdfType == 0 )
     return cos(xnu)-(alphaS/(2*M_PI))*Cf*(log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) )
 					  *tildeBKernel(xnu)+tildeDKernel(xnu)  );
-  // if ( pdfType == 2 )
+  // if ( pdfType == 1 )
     
 }
 
@@ -123,17 +140,17 @@ double NLOKernelPhenoPDFConvolution(double x, void * p)
 #ifdef CONVOLK
 #warning "Kernel will be NLO matching kernel  --  assuming pITD data will be fit"
 #warning "!!!Imaginary pITD --> PDF kernel not ready!!!"
-  if ( pdfType == 1 )
+  if ( pdfType == 0 )
     return NLOKernel(x,cp->nu,cp->z)*cp->p.pdfEval(x);    // (1/normalization)*pow(x,alpha)*pow(1-x,beta);
 #endif
 
 #ifdef CONVOLC
-  if ( pdfType == 1 )
+  if ( pdfType == 0 )
     return cos(x*cp->nu)*cp->p.pdfEval(x); // (1/normalization)*pow(x,alpha)*pow(1-x,beta);
-  if ( pdfType == 2 )
-    std::cout << "     IN NLO :: x = " << x << "   PDF [ " << cp->p.alpha << ", " << cp->p.beta
-	      << ", " << cp->p.gamma << ", " << cp->p.delta << ", " << cp->p.norm << "]  = "
-	      << cp->p.pdfEval(x) << std::endl;
+  if ( pdfType == 1 )
+    // std::cout << "     IN NLO :: x = " << x << "   PDF [ " << cp->p.alpha << ", " << cp->p.beta
+    // 	      << ", " << cp->p.gamma << ", " << cp->p.delta << ", " << cp->p.norm << "]  = "
+    // 	      << cp->p.pdfEval(x) << std::endl;
     return sin(x*cp->nu)*cp->p.pdfEval(x); // normP*pow(x,alphaP)*pow(1-x,betaP);
 #endif
 }
@@ -199,30 +216,18 @@ double chi2Func(const gsl_vector * x, void *data)
   // Get a pointer to the (void) "thisJack" reducedPITD class instance
   reducedPITD * ptrJack = (reducedPITD *)data;
   gsl_matrix * invCov;
-  if ( pdfType == 1 )
+  if ( pdfType == 0 )
     invCov = (ptrJack->data.invCovR);
-  if ( pdfType == 2 )
+  if ( pdfType == 1 )
     invCov = (ptrJack->data.invCovI);
-  // Potentially zero out off-diagonal terms for an uncorrelated fit
-#ifdef UNCORRELATED
-  for ( int i = 0; i < invCov->size1; i++ )
-    {
-      for ( int j = 0; j < invCov->size1; j++ )
-	{
-	  if ( i != j )
-	    gsl_matrix_set(invCov,i,j,0.0);
-	}
-    }
-#endif
 
 
   // Get the current pdf params
-  double dumA(0.0), dumB(0.0), dumG(0.0), dumD(0.0);
-  double norm(0.0);
+  double dumA, dumB, dumG, dumD, norm;
   bool dumNorm;
   switch(pdfType)
     {
-    case 1: // QVAL
+    case 0: // QVAL
       dumNorm = false;
       dumA = gsl_vector_get(x, 0); // alpha
       dumB  = gsl_vector_get(x, 1); // beta
@@ -232,13 +237,15 @@ double chi2Func(const gsl_vector * x, void *data)
         {
         case 3:
           dumD = gsl_vector_get(x, 2); // delta
+	  break;
         case 4:
           dumD = gsl_vector_get(x, 2); // delta
           dumG = gsl_vector_get(x, 3); // gamma
+	  break;
         }
       break;
 
-    case 2: // QPLUS
+    case 1: // QPLUS
       dumNorm = true;
       norm  = gsl_vector_get(x, 0); // N+
       dumA = gsl_vector_get(x, 1); // alpha+
@@ -249,9 +256,11 @@ double chi2Func(const gsl_vector * x, void *data)
         {
         case 3:
           dumD = gsl_vector_get(x, 3); // delta+
+	  break;
         case 4:
           dumD = gsl_vector_get(x, 3); // delta+
           dumG = gsl_vector_get(x, 4); // gamma+
+	  break;
         }
       break;
     }
@@ -283,9 +292,9 @@ double chi2Func(const gsl_vector * x, void *data)
 	  double convolTmp;
 	  if ( mm->second.IT == 0 )
 	    {
-	      if ( pdfType == 1 )
+	      if ( pdfType == 0 )
 		convolTmp = 1;
-	      if ( pdfType == 2 )
+	      if ( pdfType == 1 )
 		convolTmp = 0;
 	    }
 	  else
@@ -297,9 +306,9 @@ double chi2Func(const gsl_vector * x, void *data)
 	  // convols[std::distance(zz->second.moms.begin(),mm) + zz->first*zz->second.moms.size()] = convolTmp;
 
 	  
-	  if ( pdfType == 1 )
+	  if ( pdfType == 0 )
 	    gsl_vector_set(iDiffVec,I,convolTmp - mm->second.mat[0].real());
-	  if ( pdfType == 2 )
+	  if ( pdfType == 1 )
 	    gsl_vector_set(iDiffVec,I,convolTmp - mm->second.mat[0].imag());
 
 	}
@@ -346,7 +355,7 @@ int main( int argc, char *argv[] )
   
   if ( argc != 12 )
     {
-      std::cout << "Usage: $0 <PDF (1 [QVAL] -or- 2 [QPLUS])> <nparam fit> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin> <zmax> <pmin> <pmax>" << std::endl;
+      std::cout << "Usage: $0 <PDF (1 [QVAL] -or- 2 [QPLUS])> <nparam fit> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin cut> <zmax cut> <pmin cut> <pmax cut>" << std::endl;
       // std::cout << "Usage: $0 <alpha_i> <beta_i> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin> <zmax> <pmin> <pmax>" << std::endl;
       exit(1);
     }
@@ -356,22 +365,7 @@ int main( int argc, char *argv[] )
   
   std::stringstream ss;
   
-  //  // Allow for conditional fitting of alpha_s at compile time
-  // #ifdef FITALPHAS
-  //  double alpha_s_i = 0.3;
-  // #endif
-  // #ifndef QPLUS
-  //  double alpha_i, beta_i;
-  //  ss << argv[1]; ss >> alpha_i; ss.clear(); ss.str(std::string());
-  //  ss << argv[2]; ss >> beta_i;  ss.clear(); ss.str(std::string());
-  // #elif defined QPLUS
-  //  double normP_i = 1.0;
-  //  double alphaP_i;
-  //  double betaP_i;
-  //  ss << argv[1]; ss >> alphaP_i; ss.clear(); ss.str(std::string());
-  //  ss << argv[2]; ss >> betaP_i;  ss.clear(); ss.str(std::string());
-  // #endif
-  int gauge_configs, jkStart, jkEnd; // , nParams, pdfType;
+  int gauge_configs, jkStart, jkEnd;
   
   std::string matelemType;
   enum PDFs { QVAL, QPLUS };
@@ -387,9 +381,7 @@ int main( int argc, char *argv[] )
   ss << argv[10]; ss >> pmin;          ss.clear(); ss.str(std::string());
   ss << argv[11]; ss >> pmax;          ss.clear(); ss.str(std::string());
 
-  // Potentially modify the num elements for initializations
-  Nmom = (pmax-pmin)+1;
-  Nz   = (zmax-zmin)+1;
+
   
   // Append Qval or Qplus to matelemType
 #ifdef QPLUS
@@ -429,15 +421,22 @@ int main( int argc, char *argv[] )
   */
   reducedPITD distribution = reducedPITD(gauge_configs);
 
-  // Read from H5 file
-  H5Read(argv[3],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"itd"); // pitd
+  // Read from H5 file (all z's & p's)
+  H5Read(argv[3],&distribution,gauge_configs,0,8,1,6,"itd"); // pitd
 
   /*
     Determine full data covariance
   */
   distribution.calcCov();    std::cout << "Computed the full data covariance" << std::endl;
   distribution.calcInvCov(); std::cout << "Computed the inverse of full data covariance" << std::endl;
+  // Cut on z's & p's by zeroing respective entries in inverse covariances
+  distribution.cutOnPZ(zmin,zmax,pmin,pmax);
+  std::cout << "Cut on {zmin, zmax} = { " << zmin << " , " << zmax << " }  &  {pmin, pmax} = { "
+	    << pmin << " , " << pmax << " }" << std::endl;
 
+
+  int numCut = ( (DATMAXP - pmax) + pmin - 1 )*DATMAXZ + ( (DATMAXZ - zmax) + zmin )*DATMAXP;
+  std::cout << "*** Removing " << numCut << " data points from fit" << std::endl;
 
 #if 0
   std::cout << "Checking suitable inverse was found" << std::endl;
@@ -484,15 +483,15 @@ int main( int argc, char *argv[] )
     SET THE STARTING PARAMETER VALUES AND INITIAL STEP SIZES ONCE
   */
   gsl_vector *pdfp_ini, *pdfpSteps;
-  pdfFitParams_t dumPfp(false,-0.1,2,0.0,0.0); // collect the master starting values
+  pdfFitParams_t dumPfp((bool)pdfType,-0.1,2,0.0,0.0); // collect the master starting values
 
 
   switch(pdfType)
     {
-    case 1: // QVAL
+    case 0: // QVAL
       pdfp_ini  = gsl_vector_alloc(nParams);
       pdfpSteps = gsl_vector_alloc(nParams);
-      for ( int s = 0; s < nParams; s++ ) { gsl_vector_set(pdfpSteps, s, 0.1); }
+      for ( int s = 0; s < pdfp_ini->size; s++ ) { gsl_vector_set(pdfpSteps, s, 0.1); }
 
       gsl_vector_set(pdfp_ini, 0, dumPfp.alpha); // alpha
       gsl_vector_set(pdfp_ini, 1, dumPfp.beta);  // beta
@@ -502,16 +501,21 @@ int main( int argc, char *argv[] )
 	{
 	case 3:
 	  gsl_vector_set(pdfp_ini, 2, dumPfp.delta); // delta
+	  dumPfp.pmap[2] = "delta (qv)";
+	  break;
 	case 4:
 	  gsl_vector_set(pdfp_ini, 2, dumPfp.delta); // delta
 	  gsl_vector_set(pdfp_ini, 3, dumPfp.gamma); // gamma
+	  dumPfp.pmap[2] = "delta (qv)";
+	  dumPfp.pmap[3] = "gamma (qv)";
+	  break;
 	}
       break;
 
-    case 2: // QPLUS
+    case 1: // QPLUS
       pdfp_ini  = gsl_vector_alloc(nParams+1);
       pdfpSteps = gsl_vector_alloc(nParams+1);
-      for ( int s = 0; s < nParams; s++ ) { gsl_vector_set(pdfpSteps, s, 0.1); }
+      for ( int s = 0; s < pdfp_ini->size; s++ ) { gsl_vector_set(pdfpSteps, s, 0.1); }
 
       gsl_vector_set(pdfp_ini, 0, dumPfp.norm);  // N+
       gsl_vector_set(pdfp_ini, 1, dumPfp.alpha); // alpha+
@@ -522,13 +526,17 @@ int main( int argc, char *argv[] )
 	{
 	case 3:
 	  gsl_vector_set(pdfp_ini, 3, dumPfp.delta); // delta+
+	  dumPfp.pmap[3] = "delta (q+)";
+	  break;
 	case 4:
 	  gsl_vector_set(pdfp_ini, 3, dumPfp.delta); // delta+
 	  gsl_vector_set(pdfp_ini, 4, dumPfp.gamma); // gamma+
+	  dumPfp.pmap[3] = "delta (q+)";
+	  dumPfp.pmap[4] = "gamma (q+)";
+	  break;
 	}
       break;
     }
-
 
   /*
     INITIALIZE THE SOLVER HERE, SO REPEATED CALLS TO SET, RETURN A NEW NMRAND2 SOLVER
@@ -541,15 +549,15 @@ int main( int argc, char *argv[] )
   // const gsl_multimin_fminimizer_type *minimizer = gsl_multimin_fminimizer_nmsimplex2;
   gsl_multimin_fminimizer * fmin = gsl_multimin_fminimizer_alloc(minimizer,pdfp_ini->size);
 
-  if ( pdfType == 1 )
+  if ( pdfType == 0 )
     std::cout << "Performing " << nParams << " parameter fit to QVAL" << std::endl;
-  if ( pdfType == 2 )
+  if ( pdfType == 1 )
     std::cout << "Performing " << nParams << " parameter fit to QPLUS" << std::endl;
 
   /*
     LOOP OVER ALL JACKKNIFE SAMPLES AND DO THE FIT - ITERATING UNTIL COMPLETION
   */
-  for ( int itJ = 0; itJ < gauge_configs; itJ++ )
+  for ( int itJ = jkStart; itJ < jkEnd; itJ++ )
     {
       // Time the duration of this fit
       auto jackTimeStart = std::chrono::steady_clock::now();
@@ -620,15 +628,8 @@ int main( int argc, char *argv[] )
 	  // Iterate
 	  gsl_multimin_fminimizer_iterate(fmin);
 	  
-	  std::cout << "Current params  (" << itJ << "," << k << ") ::" << std::setprecision(14)
-		    << "   alpha (qv) = " << gsl_vector_get(gsl_multimin_fminimizer_x(fmin),0)
-		    << "   beta (qv) = " << gsl_vector_get(gsl_multimin_fminimizer_x(fmin),1)
-#ifdef QPLUS
-		    << "   N (q+) = " << gsl_vector_get(gsl_multimin_fminimizer_x(fmin),0)
-		    << "   alpha (q+) = " << gsl_vector_get(gsl_multimin_fminimizer_x(fmin),1)
-		    << "   beta (q+) = " << gsl_vector_get(gsl_multimin_fminimizer_x(fmin),2)
-#endif
-		    << std::endl;
+	  std::cout << "Current params  (" << itJ << "," << k << ") ::";
+	  dumPfp.printFit(gsl_multimin_fminimizer_x(fmin));
 	  
 	  k++;
 	}
@@ -643,23 +644,20 @@ int main( int argc, char *argv[] )
       double chiSq = gsl_multimin_fminimizer_minimum(fmin);
       // Determine the reduced chi2
       double reducedChiSq;
+      // [02/16/2021] Replace substraction of singular values, with datapts cut from fit
+      if ( pdfType == 0 )
+	reducedChiSq = chiSq / (distribution.data.covR->size1 - pdfp_ini->size - numCut); 
+      // distribution.data.svsFullR)
       if ( pdfType == 1 )
-	reducedChiSq = chiSq / (distribution.data.covR->size1 - pdfp_ini->size - distribution.data.svsFullR);
-      if ( pdfType == 2 )
-	reducedChiSq = chiSq / (distribution.data.covI->size1 - pdfp_ini->size - distribution.data.svsFullI);
+	reducedChiSq = chiSq / (distribution.data.covI->size1 - pdfp_ini->size - numCut);
+      // distribution.data.svsFullI)
 
       
       
       std::cout << " For jackknife sample J = " << itJ << ", Converged after " << k
 		<<" iterations, Optimal Chi2/dof = " << reducedChiSq << std::endl;
-      std::cout << std::setprecision(6) << "  alpha (qv) =  " << gsl_vector_get(bestFitParams,0) << std::endl;
-      std::cout << std::setprecision(6) << "  beta (qv) =  " << gsl_vector_get(bestFitParams,1) << std::endl;
-
-#ifdef QPLUS
-      std::cout << std::setprecision(6) << "  N (q+) =  " << gsl_vector_get(bestFitParams,0) << std::endl;
-      std::cout << std::setprecision(6) << "  alpha (q+) =  " << gsl_vector_get(bestFitParams,1) << std::endl;
-      std::cout << std::setprecision(6) << "  beta (q+) =  " << gsl_vector_get(bestFitParams,2) << std::endl;
-#endif
+      dumPfp.printFit(bestFitParams);
+      
       
       // // Write the fit results to a file
       // OUT << std::setprecision(10) << reducedChiSq << " "
