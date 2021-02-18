@@ -326,10 +326,16 @@ namespace PITD
 
 		    if ( di->first < minz || di->first > maxz || 
 			 atoi(&mi->first[2]) < minp || atoi(&mi->first[2]) > maxp )
-		      gsl_matrix_set(data.invCovR, I, J, 0.0);
+		      {
+			gsl_matrix_set(data.covR, I, J, 0.0);
+			gsl_matrix_set(data.covI, I, J, 0.0);
+		      }
 		    else if ( dj->first < minz || dj->first > maxz ||
 			      atoi(&mj->first[2]) < minp || atoi(&mj->first[2]) > maxp )
-		      gsl_matrix_set(data.invCovI, I, J, 0.0);
+		      {
+			gsl_matrix_set(data.covR, I, J, 0.0);
+			gsl_matrix_set(data.covI, I, J, 0.0);
+		      }
 		    else
 		      continue;
 
