@@ -123,9 +123,10 @@ double NLOKernel(double x, double ioffeTime, int z)
   double xnu = x * ioffeTime;
   if ( pdfType == 0 )
     return cos(xnu)-(alphaS/(2*M_PI))*Cf*(log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) )
-					  *tildeBKernel(xnu)+tildeDKernel(xnu)  );
-  // if ( pdfType == 1 )
-    
+					  *tildeBKernel(xnu,pdfType)+tildeDKernel(xnu,pdfType)  );
+  if ( pdfType == 1 )
+    return sin(xnu)-(alphaS/(2*M_PI))*Cf*(log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) )
+					  *tildeBKernel(xnu,pdfType)+tildeDKernel(xnu,pdfType)  );
 }
 
 
@@ -139,9 +140,7 @@ double NLOKernelPhenoPDFConvolution(double x, void * p)
   */
 #ifdef CONVOLK
 #warning "Kernel will be NLO matching kernel  --  assuming pITD data will be fit"
-#warning "!!!Imaginary pITD --> PDF kernel not ready!!!"
-  if ( pdfType == 0 )
-    return NLOKernel(x,cp->nu,cp->z)*cp->p.pdfEval(x);    // (1/normalization)*pow(x,alpha)*pow(1-x,beta);
+  return NLOKernel(x,cp->nu,cp->z)*cp->p.pdfEval(x);
 #endif
 
 #ifdef CONVOLC
@@ -280,10 +279,10 @@ double chi2Func(const gsl_vector * x, void *data)
     ALSO
     Set the difference btwn convolution and jack data
   */
-  std::vector<double> convols(invCov->size1);
+#pragma omp parallel num_threads(ptrJack->data.disps.size())
   for ( auto zz = ptrJack->data.disps.begin(); zz != ptrJack->data.disps.end(); ++zz )
     {
-// #pragma omp parallel for
+#pragma omp parallel num_threads(zz->second.moms.size()/2)
       for ( auto mm = zz->second.moms.begin(); mm != zz->second.moms.end(); ++mm )
 	{
 	  // The index
@@ -422,7 +421,13 @@ int main( int argc, char *argv[] )
   reducedPITD distribution = reducedPITD(gauge_configs);
 
   // Read from H5 file (all z's & p's)
+#ifdef CONVOLC
   H5Read(argv[3],&distribution,gauge_configs,0,8,1,6,"itd"); // pitd
+#endif
+#ifdef CONVOLK
+  H5Read(argv[3],&distribution,gauge_configs,0,8,1,6,"pitd");
+#endif
+  
 
   /*
     Determine full data covariance
