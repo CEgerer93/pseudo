@@ -289,7 +289,8 @@ double chi2Func(const gsl_vector * x, void *data)
       for ( auto mm = zz->second.moms.begin(); mm != zz->second.moms.end(); ++mm )
 	{
 	  // The index
-	  int I = std::distance(zz->second.moms.begin(),mm) + zz->first*zz->second.moms.size();
+	  int I = std::distance(zz->second.moms.begin(),mm) +
+	    std::distance(ptrJack->data.disps.begin(),zz)*zz->second.moms.size();
 
 	  double convolTmp;
 	  if ( mm->second.IT == 0 )
@@ -420,14 +421,14 @@ int main( int argc, char *argv[] )
   /*
     INITIALIZE STRUCTURE FOR DISTRIBUTION TO FIT (WHERE DISTRIBUTION IS EITHER ITD OR pITD)
   */
-  reducedPITD distribution = reducedPITD(gauge_configs);
+  reducedPITD distribution = reducedPITD(gauge_configs, zmin, zmax, pmin, pmax);
 
   // Read from H5 file (all z's & p's)
 #ifdef CONVOLC
-  H5Read(argv[3],&distribution,gauge_configs,0,8,1,6,"itd"); // pitd
+  H5Read(argv[3],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"itd"); // pitd
 #endif
 #ifdef CONVOLK
-  H5Read(argv[3],&distribution,gauge_configs,0,8,1,6,"pitd");
+  H5Read(argv[3],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"pitd");
 #endif
   
 
@@ -435,16 +436,15 @@ int main( int argc, char *argv[] )
     Determine full data covariance
   */
   distribution.calcCov();    std::cout << "Computed the full data covariance" << std::endl;
-  distribution.cutOnPZ(zmin,zmax,pmin,pmax);
-  distribution.calcInvCov(); std::cout << "Computed the inverse of full data covariance" << std::endl;
-  // Cut on z's & p's by zeroing respective entries in inverse covariances
   // distribution.cutOnPZ(zmin,zmax,pmin,pmax);
-  // std::cout << "Cut on {zmin, zmax} = { " << zmin << " , " << zmax << " }  &  {pmin, pmax} = { "
-  // 	    << pmin << " , " << pmax << " }" << std::endl;
+  distribution.calcInvCov(); std::cout << "Computed the inverse of full data covariance" << std::endl;
+  std::cout << "Cut on {zmin, zmax} = { " << zmin << " , " << zmax << " }  &  {pmin, pmax} = { "
+  	    << pmin << " , " << pmax << " }" << std::endl;
 
 
   int numCut = ( (DATMAXP - pmax) + pmin - 1 )*DATMAXZ + ( (DATMAXZ - zmax) + zmin )*DATMAXP;
-  std::cout << "*** Removing " << numCut << " data points from fit" << std::endl;
+  std::cout << "*** Removed " << numCut << " data points from fit" << std::endl;
+
 
 #if 0
   std::cout << "Checking suitable inverse was found" << std::endl;
@@ -584,7 +584,7 @@ int main( int argc, char *argv[] )
 	BEGIN EXTRACTION OF INFO FOR THIS JACKKNIFE
       */
       // Instantiate a reducedPITD object for this jackknife
-      reducedPITD thisJack;
+      reducedPITD thisJack(1, zmin, zmax, pmin, pmax);
       thisJack.data.invCovR = distribution.data.invCovR;
       thisJack.data.invCovI = distribution.data.invCovI;
       // Extract

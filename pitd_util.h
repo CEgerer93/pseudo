@@ -101,6 +101,12 @@ namespace PITD
     reducedPITD() {}
     // Parametrized
     reducedPITD(int g) { gauge_configs = g; }
+    reducedPITD(int g, int zmin, int zmax, int pmin, int pmax)
+      {
+	gauge_configs = g;
+	zminCut = zmin; zmaxCut = zmax;
+	pminCut = pmin; pmaxCut = pmax;
+      }
     // Destructor
     virtual ~reducedPITD() {};
 
@@ -139,6 +145,7 @@ namespace PITD
     
   private:
     int gauge_configs;
+    int zminCut, zmaxCut, pminCut, pmaxCut;
   };
 
 

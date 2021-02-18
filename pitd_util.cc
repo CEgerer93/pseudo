@@ -244,14 +244,14 @@ namespace PITD
 	  {
 	    // Get the Ith index
 	    int I = std::distance<std::map<std::string, momVals>::const_iterator>
-	      (di->second.moms.begin(), mi) + di->first*di->second.moms.size();
+	      (di->second.moms.begin(), mi) + (di->first-zminCut)*di->second.moms.size();
 
 	    for ( auto dj = data.disps.begin(); dj != data.disps.end(); ++dj )
 	      {
 		for ( auto mj = dj->second.moms.begin(); mj != dj->second.moms.end(); mj++ )
 		  {
 		    // Get the Jth index
-		    int J = std::distance(dj->second.moms.begin(), mj) + dj->first*dj->second.moms.size();
+		    int J = std::distance(dj->second.moms.begin(), mj) + (dj->first-zminCut)*dj->second.moms.size();
 
 		    double _r(0.0), _i(0.0);
 
