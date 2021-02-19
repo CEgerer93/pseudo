@@ -282,10 +282,10 @@ double chi2Func(const gsl_vector * x, void *data)
     ALSO
     Set the difference btwn convolution and jack data
   */
-// #pragma omp parallel num_threads(ptrJack->data.disps.size())
+#pragma omp parallel num_threads(ptrJack->data.disps.size())
   for ( auto zz = ptrJack->data.disps.begin(); zz != ptrJack->data.disps.end(); ++zz )
     {
-// #pragma omp parallel num_threads(zz->second.moms.size()/2)
+#pragma omp parallel num_threads(2) // zz->second.moms.size()/2)
       for ( auto mm = zz->second.moms.begin(); mm != zz->second.moms.end(); ++mm )
 	{
 	  // The index
@@ -634,7 +634,7 @@ int main( int argc, char *argv[] )
       // Iteration count
       int k = 1;
       double tolerance = 0.0000001; // 0.0001
-      int maxIters = 10000;      // 1000
+      int maxIters = 10; //000;      // 1000
       
       
       while ( gsl_multimin_test_size( gsl_multimin_fminimizer_size(fmin), tolerance) == GSL_CONTINUE )
@@ -741,26 +741,49 @@ int main( int argc, char *argv[] )
     } // End loop over jackknife samples
 
 
-// #ifdef CONVOLK
-//   // Write the pitd->PDF fit results for later plotting
-//   reducedPITD pitdPDFFit(gauge_configs);
-//   for ( int z = zmin; z <= zmax; z++ )
-//     {
-//       for ( int m = pmin; m <= pmax; p++ )
-// 	{
-// 	  // Fetch the same Ioffe-time from distribution
-// 	  double nu = distribution.data.disps[z].moms[m].IT;
+#ifdef CONVOLK
+  // Write the pitd->PDF fit results for later plotting
+  reducedPITD pitdPDFFit(gauge_configs);
+  for ( int z = zmin; z <= zmax; z++ )
+    {
+      zvals dumZ;
+      for ( int m = pmin; m <= pmax; m++ )
+	{
 
-// 	  *data.disps[z].moms[m].mat[j] = convolution( p, nu, z);
-	  
+	  // A dummy momVals struct to pack
+	  momVals dumM(gauge_configs);
+	  // Fetch the same Ioffe-time from distribution
+	  dumM.IT = distribution.data.disps[z].moms["pz"+std::to_string(m)].IT;
+	  for ( int j = 0; j < gauge_configs; j++ )
+	    {
+	      // Now evaluate the convolution for this jk's best fit params, for this {nu, z}
+	      double bestMat = convolution( fitResults[j], dumM.IT, z );
+	      if ( pdfType == 0 )
+		dumM.mat[j].real( bestMat );
+	      if ( pdfType == 1 )
+		dumM.mat[j].imag( bestMat );
+	    }
+
+	  std::pair<std::string, momVals> amom ( "pz"+std::to_string(m), dumM );
+
+	  dumZ.moms.insert(amom);
+
+	} // end m
+
+      // Now make/insert the dumZ instance
+      std::pair<int, zvals> az ( z, dumZ );
+      pitdPDFFit.data.disps.insert(az);
+
+    } // end z
 
 
-//   pitdPDFFit.data.disps
-  
-//   std::string out_pitdPDFFit = "b_b0xDA__J0_A1pP." + matelemType + ".pITD-PDF-Fit.h5";
-//   char * out_pitdPDFFit_h5 = &out_pitdPDFFit[0];
-//   H5Write(out_pitdPDFFit_h5, &pitdPDFFit, gauge_configs, zmin, zmax, pmin, pmax, "pitd->PDF Fit");
-// #endif
+  /*
+    Now that pitdPDFFit has been populated, used H5Write to write to h5 file
+  */  
+  std::string out_pitdPDFFit = "b_b0xDA__J0_A1pP." + matelemType + ".pITD-PDF-Fit.h5";
+  char * out_pitdPDFFit_h5 = &out_pitdPDFFit[0];
+  H5Write(out_pitdPDFFit_h5, &pitdPDFFit, gauge_configs, zmin, zmax, pmin, pmax, "pitd->PDF Fit");
+#endif
   
 
   // Close the output file containing jack fit results
