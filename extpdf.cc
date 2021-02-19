@@ -89,6 +89,13 @@ struct pdfFitParams_t
     std::cout << "\n";
   }
 
+  // Write best fit values to file
+  void write(std::ofstream &os, double redChi2)
+  {
+    os << std::setprecision(10) << redChi2 << " ";
+    os << norm << " " << alpha << " " << beta << " " << gamma << " " << delta << "\n";
+  }
+
   // Default/Parametrized constructor w/ initializer lists
   // pdfFitParams_t() : norm(1.0), alpha(-0.3), beta(2.5), gamma(0.0), delta(0.0) {}
   pdfFitParams_t(bool _floatNorm = false, double _a = -0.3, double _b = 2.5, double _g = 0.0,
@@ -283,9 +290,13 @@ double chi2Func(const gsl_vector * x, void *data)
     Set the difference btwn convolution and jack data
   */
 #pragma omp parallel num_threads(ptrJack->data.disps.size())
+// #pragma omp parallel
+// #pragma omp for
   for ( auto zz = ptrJack->data.disps.begin(); zz != ptrJack->data.disps.end(); ++zz )
     {
 #pragma omp parallel num_threads(2) // zz->second.moms.size()/2)
+// #pragma omp parallel
+// #pragma omp for
       for ( auto mm = zz->second.moms.begin(); mm != zz->second.moms.end(); ++mm )
 	{
 	  // The index
@@ -333,6 +344,7 @@ double chi2Func(const gsl_vector * x, void *data)
   gsl_vector_free(iDiffVec);
   gsl_vector_free(jDiffVec);
   gsl_vector_free(invCovRightMult);
+  // gsl_matrix_free(invCov);
 
 
   // // Sum the real/imag chi2 always, where chi2 imag may be zero if QPLUS is not defined
@@ -551,7 +563,7 @@ int main( int argc, char *argv[] )
     INITIALIZE THE SOLVER HERE, SO REPEATED CALLS TO SET, RETURN A NEW NMRAND2 SOLVER
   */
   /*
-    Initialize a multidimensional minimzer without relying on derivatives of function
+    Initialize a multidimensional minimizer without relying on derivatives of function
   */
   // Select minimization type
   const gsl_multimin_fminimizer_type *minimizer = gsl_multimin_fminimizer_nmsimplex2rand;
@@ -634,7 +646,7 @@ int main( int argc, char *argv[] )
       // Iteration count
       int k = 1;
       double tolerance = 0.0000001; // 0.0001
-      int maxIters = 10; //000;      // 1000
+      int maxIters = 10000;      // 1000
       
       
       while ( gsl_multimin_test_size( gsl_multimin_fminimizer_size(fmin), tolerance) == GSL_CONTINUE )
@@ -720,16 +732,12 @@ int main( int argc, char *argv[] )
 
       fitResults[itJ] = *best;
 
+      delete best;
+
       
-      // // Write the fit results to a file
-      // OUT << std::setprecision(10) << reducedChiSq << " "
-      // 	  << gsl_vector_get(bestFitParams,0) << " " << gsl_vector_get(bestFitParams,1) << " "
-      // 	  << "\n";
-
-      // OUT.flush();
-
-      // Free memory
-      // gsl_vector_free(bestFitParams);
+      // Write the fit results to a file
+      best->write(OUT, reducedChiSq);
+      OUT.flush();
 
       
       // Determine/print the total time for this fit
@@ -754,6 +762,9 @@ int main( int argc, char *argv[] )
 	  momVals dumM(gauge_configs);
 	  // Fetch the same Ioffe-time from distribution
 	  dumM.IT = distribution.data.disps[z].moms["pz"+std::to_string(m)].IT;
+
+#pragma omp parallel
+#pragma omp for
 	  for ( int j = 0; j < gauge_configs; j++ )
 	    {
 	      // Now evaluate the convolution for this jk's best fit params, for this {nu, z}
@@ -782,7 +793,7 @@ int main( int argc, char *argv[] )
   */  
   std::string out_pitdPDFFit = "b_b0xDA__J0_A1pP." + matelemType + ".pITD-PDF-Fit.h5";
   char * out_pitdPDFFit_h5 = &out_pitdPDFFit[0];
-  H5Write(out_pitdPDFFit_h5, &pitdPDFFit, gauge_configs, zmin, zmax, pmin, pmax, "pitd->PDF Fit");
+  H5Write(out_pitdPDFFit_h5, &pitdPDFFit, gauge_configs, zmin, zmax, pmin, pmax, "pitd_PDF_Fit");
 #endif
   
 
