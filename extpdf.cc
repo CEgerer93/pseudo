@@ -410,19 +410,19 @@ int main( int argc, char *argv[] )
 #warning "   Performing an uncorrelated fit"
 #ifdef CONVOLC
   std::string output = "b_b0xDA__J0_A1pP."+matelemType+"_jack"+std::to_string(jkStart)+
-    "-"+std::to_string(jkEnd)+".2-parameter.convolC.uncorrelated";
+    "-"+std::to_string(jkEnd)+"."+std::to_string(nParams)+"-parameter.convolC.uncorrelated";
 #else
   std::string output = "b_b0xDA__J0_A1pP."+matelemType+"_jack"+std::to_string(jkStart)+
-    "-"+std::to_string(jkEnd)+".2-parameter.convolK.uncorrelated";
+    "-"+std::to_string(jkEnd)+"."+std::to_string(nParams)+"-parameter.convolK.uncorrelated";
 #endif
 #else
 #warning "   Performing a correlated fit"
 #ifdef CONVOLC
   std::string output = "b_b0xDA__J0_A1pP."+matelemType+"_jack"+std::to_string(jkStart)+
-    "-"+std::to_string(jkEnd)+".2-parameter.convolC.correlated";
+    "-"+std::to_string(jkEnd)+"."+std::to_string(nParams)+"-parameter.convolC.correlated";
 #else
   std::string output = "b_b0xDA__J0_A1pP."+matelemType+"_jack"+std::to_string(jkStart)+
-    "-"+std::to_string(jkEnd)+".2-parameter.convolK.correlated";
+    "-"+std::to_string(jkEnd)+"."+std::to_string(nParams)+"-parameter.convolK.correlated";
 #endif
 #endif
   output += ".pmin"+std::to_string(pmin)+"_pmax"+std::to_string(pmax)+
@@ -732,13 +732,12 @@ int main( int argc, char *argv[] )
 
       fitResults[itJ] = *best;
 
-      delete best;
-
       
       // Write the fit results to a file
       best->write(OUT, reducedChiSq);
       OUT.flush();
 
+      delete best;
       
       // Determine/print the total time for this fit
       auto jackTimeEnd = std::chrono::steady_clock::now();
