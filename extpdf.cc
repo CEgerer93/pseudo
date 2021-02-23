@@ -47,7 +47,7 @@
 #endif
 
 // Macros for maximum z and p in computed data
-#define DATMAXZ 8
+#define DATMAXZ 16
 #define DATMAXP 6
 
 
@@ -355,9 +355,9 @@ double chi2Func(const gsl_vector * x, void *data)
   /*
     CHECK FOR VALUES OF {ALPHA,BETA} OUTSIDE ACCEPTABLE RANGE AND INFLATE CHI2
   */
-  if ( pdfp.alpha < pdfp.alphaRestrict.first || pdfp.alpha > pdfp.alphaRestrict.second )
+  if ( pdfp.alpha <= pdfp.alphaRestrict.first || pdfp.alpha >= pdfp.alphaRestrict.second )
     chi2+=1000000;
-  if ( pdfp.beta < pdfp.betaRestrict.first || pdfp.beta > pdfp.betaRestrict.second )
+  if ( pdfp.beta <= pdfp.betaRestrict.first || pdfp.beta >= pdfp.betaRestrict.second )
     chi2+=1000000;
 #endif
 
@@ -503,7 +503,7 @@ int main( int argc, char *argv[] )
     SET THE STARTING PARAMETER VALUES AND INITIAL STEP SIZES ONCE
   */
   gsl_vector *pdfp_ini, *pdfpSteps;
-  pdfFitParams_t dumPfp((bool)pdfType,-0.1,2,0.0,0.0); // collect the master starting values
+  pdfFitParams_t dumPfp((bool)pdfType,0.3,2,0.0,0.0); // collect the master starting values
 
 
   switch(pdfType)
