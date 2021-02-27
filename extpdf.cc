@@ -73,12 +73,18 @@ struct pdfFitParams_t
   // Return the evaluated pdf
   double pdfEval(double x)
   {
+#ifndef JACOBI
     if ( nParams == 2 )
       return norm * pow(x,alpha) * pow(1-x,beta);
     if ( nParams == 3 )
       return norm * pow(x,alpha) * pow(1-x,beta) * (1 + delta*x);
     if ( nParams == 4 )
       return norm * pow(x,alpha) * pow(1-x,beta) * (1 + gamma*sqrt(x) + delta*x);
+#endif
+#ifdef JACOBI
+    return pow(x,alpha) * pow(1-x,beta) * ( (1.0/betaFn(alpha+1,beta+1)) + gamma*jacobi(1,alpha,beta,x)
+					    + delta*jacobi(2,alpha,beta,x) );
+#endif
   }
 
   // Print the current fit values
@@ -294,7 +300,7 @@ double chi2Func(const gsl_vector * x, void *data)
 // #pragma omp for
   for ( auto zz = ptrJack->data.disps.begin(); zz != ptrJack->data.disps.end(); ++zz )
     {
-#pragma omp parallel num_threads(2) // zz->second.moms.size()/2)
+#pragma omp parallel num_threads(zz->second.moms.size())
 // #pragma omp parallel
 // #pragma omp for
       for ( auto mm = zz->second.moms.begin(); mm != zz->second.moms.end(); ++mm )
@@ -503,7 +509,9 @@ int main( int argc, char *argv[] )
     SET THE STARTING PARAMETER VALUES AND INITIAL STEP SIZES ONCE
   */
   gsl_vector *pdfp_ini, *pdfpSteps;
-  pdfFitParams_t dumPfp((bool)pdfType,0.3,2,0.0,0.0); // collect the master starting values
+  // pdfFitParams_t dumPfp((bool)pdfType,0.3,2,0.0,0.0); // collect the master starting values
+  // These for jacobi qv
+  pdfFitParams_t dumPfp((bool)pdfType,0.1,0,2.0,1.3);
 
 
   switch(pdfType)

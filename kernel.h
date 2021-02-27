@@ -39,6 +39,11 @@ namespace PITD
   */
   double betaFn(double v, double w);
 
+  /*
+    Jacobi Polynomial
+  */
+  double jacobi(int n, double a, double b, double x);
+
 
 }
 #endif

@@ -190,5 +190,19 @@ namespace PITD
     return gsl_sf_beta(v,w);
   }
 
+  /*
+    Jacobi Polynomial
+  */
+  double jacobi(int n, double a, double b, double x)
+  {
+    double sum(0.0);
+    for ( int j = 0; j <= n; j++ )
+      {
+	double binomial = gsl_sf_choose(n,j);
+	sum += binomial*((pow(-1,j)*gsl_sf_gamma(a+b+n+j+1))/gsl_sf_gamma(a+j+1))*pow(x,j);
+      }
+    return (gsl_sf_gamma(a+n+1)/(gsl_sf_fact(n)*gsl_sf_gamma(a+b+n+1)))*sum;
+  }
+
 
 }
