@@ -68,6 +68,16 @@ struct pdfFitParams_t
   gsl_vector *lt_sigmaN, *lt_fitParams;
   gsl_vector *az_sigmaN, *az_fitParams;
 
+
+  // Let's try some Bayesian prior stuff
+  std::vector<double> prior {0.0, 0.0, 0.0};
+  std::vector<double> width {1.1, 0.5, 0.25};
+
+  std::vector<double> az_prior {0.0, 0.0, 0.0};
+  std::vector<double> az_width {0.25, 0.25, 0.25};
+  
+
+
   std::map<int, std::string> pmap; // map to print fit parameter string and values during fit
 
   // Set barriers
@@ -267,13 +277,21 @@ double chi2Func(const gsl_vector * x, void *data)
 
 
 #ifdef CONSTRAINED
-  /*
-    CHECK FOR VALUES OF {ALPHA,BETA} OUTSIDE ACCEPTABLE RANGE AND INFLATE CHI2
-  */
-  if ( pdfp.alpha <= pdfp.alphaRestrict.first || pdfp.alpha >= pdfp.alphaRestrict.second )
-    chi2+=1000000;
-  if ( pdfp.beta <= pdfp.betaRestrict.first || pdfp.beta >= pdfp.betaRestrict.second )
-    chi2+=1000000;
+  // std::cout << "Contraint" << std::endl;
+  // std::cout << "lt_fitParams.size = " << pdfp.lt_fitParams->size << std::endl;
+  for ( int i = 0; i < pdfp.lt_fitParams->size; i++ )
+    chi2 += 10*pow( gsl_vector_get(pdfp.lt_fitParams,i) - pdfp.prior[i], 2)/(2*pow(pdfp.width[i],2));
+  for ( int i = 0; i < pdfp.az_fitParams->size; i++ )
+    chi2 += 10*pow( gsl_vector_get(pdfp.az_fitParams,i) - pdfp.az_prior[i], 2)/(2*pow(pdfp.az_width[i],2));
+
+
+  // /*
+  //   CHECK FOR VALUES OF {ALPHA,BETA} OUTSIDE ACCEPTABLE RANGE AND INFLATE CHI2
+  // */
+  // if ( pdfp.alpha <= pdfp.alphaRestrict.first || pdfp.alpha >= pdfp.alphaRestrict.second )
+  //   chi2+=1000000;
+  // if ( pdfp.beta <= pdfp.betaRestrict.first || pdfp.beta >= pdfp.betaRestrict.second )
+  //   chi2+=1000000;
 #endif
 
   return chi2;
@@ -413,9 +431,9 @@ int main( int argc, char *argv[] )
 
   pdfp_ini  = gsl_vector_alloc(nParams);
   pdfpSteps = gsl_vector_alloc(nParams);
-  dumPfp = new pdfFitParams_t(0.1,2.0,dumLTIni,dumAZIni); // pass dummy LT & AZ vectors for
+  dumPfp = new pdfFitParams_t(0.05,2.0,dumLTIni,dumAZIni); // pass dummy LT & AZ vectors for
                                                           // pmap member initialization
-  for ( int s = 0; s < 2; s++ ) { gsl_vector_set(pdfpSteps, s, 0.1); } // alpha, beta step sizes
+  for ( int s = 0; s < 2; s++ ) { gsl_vector_set(pdfpSteps, s, 0.15); } // alpha, beta step sizes
   
   gsl_vector_set(pdfp_ini, 0, dumPfp->alpha); // alpha
   gsl_vector_set(pdfp_ini, 1, dumPfp->beta);  // beta
