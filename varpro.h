@@ -27,7 +27,7 @@ namespace VarPro
   class varPro
   {
   public:
-    gsl_vector * basis; // Non-linear Basis functions
+    gsl_matrix * basis; // Non-linear Basis functions
     gsl_vector * Y;     // Y_i = \sum_k pITD(k)*Phi_i(non-linear params; nu, z) ; where k is a tuple of (nu,z)
     gsl_matrix * Phi;   // Outer product of basis functions;
     // Phi_{ij} = \sum_k Phi_i(non-linear params; nu, z)*Phi_j(non-linear params; nu, z) w/ k a tuple of (nu, z)
@@ -54,11 +54,11 @@ namespace VarPro
     // Populate the non-linear basis of functions
     void makeBasis(gsl_vector *d);
 
-    void makeY();
+
+    void makeY(gsl_vector *data, gsl_matrix *invCov, double a, double b, std::vector<std::pair<int, double>> &nuz);
+    void makePhi();
     
   private:
-    int gauge_configs;
-    int zminCut, zmaxCut, pminCut, pmaxCut;
   };
 
 

@@ -215,6 +215,7 @@ double chi2Func(const gsl_vector * x, void *data)
   */
   double chi2(0.0);
 #ifdef VARPRO
+  std::vector<std::pair<int, double> > nuz; // collect pairs of nu and z for contruction of basis functions
   gsl_vector *data = gsl_vector_alloc(invCov->size1);
 #else
   gsl_vector *iDiffVec = gsl_vector_alloc(invCov->size1);
@@ -254,6 +255,8 @@ double chi2Func(const gsl_vector * x, void *data)
 	    }
 
 #ifdef VARPRO
+	  std::pair<int, double> nuzTmp = std::make_pair(zz->first, mm->second.IT);
+	  nuz.push_back(nuzTmp);
 	  if ( pdfType == 0 )
 	    gsl_vector_set(data,I,mm->second.mat[0].real());
 	  if ( pdfType == 1 )
@@ -271,7 +274,7 @@ double chi2Func(const gsl_vector * x, void *data)
 #ifdef VARPRO
   varPro VP(pdfp.lt_fitParams->size,pdfp.az_fitParams->size);
 
-  VP.makeBasis()
+  VP.makeBasis(dumA, dumB)
 
   VP.makeY()
 
