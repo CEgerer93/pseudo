@@ -214,8 +214,12 @@ double chi2Func(const gsl_vector * x, void *data)
     Initialize chi2 and vectors to store differences between jack data and convolution
   */
   double chi2(0.0);
+#ifdef VARPRO
+  gsl_vector *data = gsl_vector_alloc(invCov->size1);
+#else
   gsl_vector *iDiffVec = gsl_vector_alloc(invCov->size1);
   gsl_vector *jDiffVec = gsl_vector_alloc(invCov->size1);
+#endif
 
   /*
     Evaluate the kernel for all points and store
@@ -249,15 +253,32 @@ double chi2Func(const gsl_vector * x, void *data)
 	      convolTmp = pdfp.pitdFit(mm->second.IT,zz->first);
 	    }
 
+#ifdef VARPRO
+	  if ( pdfType == 0 )
+	    gsl_vector_set(data,I,mm->second.mat[0].real());
+	  if ( pdfType == 1 )
+	    gsl_vector_set(data,I,mm->second.mat[0].imag());
+#else
 	  if ( pdfType == 0 )
 	    gsl_vector_set(iDiffVec,I,convolTmp - mm->second.mat[0].real());
 	  if ( pdfType == 1 )
 	    gsl_vector_set(iDiffVec,I,convolTmp - mm->second.mat[0].imag());
-
+#endif
 	}
     }
 
 
+#ifdef VARPRO
+  varPro VP(pdfp.lt_fitParams->size,pdfp.az_fitParams->size);
+
+  VP.makeBasis()
+
+  VP.makeY()
+
+
+
+
+#else
   // The difference vector need only be computed once, so make a second copy to form correlated chi2
   gsl_vector_memcpy(jDiffVec,iDiffVec);
 
@@ -268,30 +289,20 @@ double chi2Func(const gsl_vector * x, void *data)
   // Form the scalar dot product of iDiffVec & result of invCov x jDiffVec
   gsl_blas_ddot(iDiffVec,invCovRightMult,&chi2);
 
-
   // Free some memory
   gsl_vector_free(iDiffVec);
   gsl_vector_free(jDiffVec);
   gsl_vector_free(invCovRightMult);
-  // gsl_matrix_free(invCov);
+#endif
+
 
 
 #ifdef CONSTRAINED
-  // std::cout << "Contraint" << std::endl;
-  // std::cout << "lt_fitParams.size = " << pdfp.lt_fitParams->size << std::endl;
+  // Apply Gaussian priors on linear terms
   for ( int i = 0; i < pdfp.lt_fitParams->size; i++ )
-    chi2 += 10*pow( gsl_vector_get(pdfp.lt_fitParams,i) - pdfp.prior[i], 2)/(2*pow(pdfp.width[i],2));
+    chi2 += pow( gsl_vector_get(pdfp.lt_fitParams,i) - pdfp.prior[i], 2)/pow(pdfp.width[i],2);
   for ( int i = 0; i < pdfp.az_fitParams->size; i++ )
-    chi2 += 10*pow( gsl_vector_get(pdfp.az_fitParams,i) - pdfp.az_prior[i], 2)/(2*pow(pdfp.az_width[i],2));
-
-
-  // /*
-  //   CHECK FOR VALUES OF {ALPHA,BETA} OUTSIDE ACCEPTABLE RANGE AND INFLATE CHI2
-  // */
-  // if ( pdfp.alpha <= pdfp.alphaRestrict.first || pdfp.alpha >= pdfp.alphaRestrict.second )
-  //   chi2+=1000000;
-  // if ( pdfp.beta <= pdfp.betaRestrict.first || pdfp.beta >= pdfp.betaRestrict.second )
-  //   chi2+=1000000;
+    chi2 += pow( gsl_vector_get(pdfp.az_fitParams,i) - pdfp.az_prior[i], 2)/pow(pdfp.az_width[i],2);
 #endif
 
   return chi2;
