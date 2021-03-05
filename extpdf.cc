@@ -39,7 +39,7 @@
 
 #include "pitd_util.h"
 #include "kernel.h"
-
+#include "varpro.h"
 
 // If we are building st. alpha_s is not a fitted parameter, then set a value here
 #ifndef FITALPHAS
@@ -52,7 +52,7 @@
 
 
 using namespace PITD;
-
+using namespace VarPro;
 
 // Default values of p & z to cut on
 int zmin,zmax,pmin,pmax;
@@ -216,7 +216,7 @@ double chi2Func(const gsl_vector * x, void *data)
   double chi2(0.0);
 #ifdef VARPRO
   std::vector<std::pair<int, double> > nuz; // collect pairs of nu and z for contruction of basis functions
-  gsl_vector *data = gsl_vector_alloc(invCov->size1);
+  gsl_vector *dataVec = gsl_vector_alloc(invCov->size1);
 #else
   gsl_vector *iDiffVec = gsl_vector_alloc(invCov->size1);
   gsl_vector *jDiffVec = gsl_vector_alloc(invCov->size1);
@@ -258,9 +258,9 @@ double chi2Func(const gsl_vector * x, void *data)
 	  std::pair<int, double> nuzTmp = std::make_pair(zz->first, mm->second.IT);
 	  nuz.push_back(nuzTmp);
 	  if ( pdfType == 0 )
-	    gsl_vector_set(data,I,mm->second.mat[0].real());
+	    gsl_vector_set(dataVec,I,mm->second.mat[0].real());
 	  if ( pdfType == 1 )
-	    gsl_vector_set(data,I,mm->second.mat[0].imag());
+	    gsl_vector_set(dataVec,I,mm->second.mat[0].imag());
 #else
 	  if ( pdfType == 0 )
 	    gsl_vector_set(iDiffVec,I,convolTmp - mm->second.mat[0].real());
@@ -270,15 +270,48 @@ double chi2Func(const gsl_vector * x, void *data)
 	}
     }
 
-
+  std::cout << "AT VARPRO" << std::endl;
 #ifdef VARPRO
   varPro VP(pdfp.lt_fitParams->size,pdfp.az_fitParams->size);
 
-  VP.makeBasis(dumA, dumB)
+  VP.makeBasis(dumA, dumB, nuz);
+  VP.makeY(dataVec, invCov);
+  VP.makePhi(invCov);
+  VP.getInvPhi(); // compute inverse of Phi matrix
 
-  VP.makeY()
+  // Collect result of data vectors sandwiched between inverse of data covariance
+  double dataSum(0.0);
+  // Collect result of varPro matrix/vector operations
+  double varProSum(0.0);
+
+  // // Identity
+  // gsl_matrix *id = gsl_matrix_alloc(nParamsLT+nParamsAZ, nParamsLT+nParamsAZ);
+  // gsl_matrix_set_identity(id);
+  // Result of Phi^T x Phi^-1 + ID
+  gsl_matrix *inner = gsl_matrix_alloc(nParamsLT+nParamsAZ, nParamsLT+nParamsAZ);
+  gsl_matrix_set_identity(inner);
+
+  gsl_blas_dgemm(CblasTrans,CblasNoTrans,1.0,VP.Phi,VP.invPhi,1.0,inner);
+
+  // Result of Phi^-1 x inner    --->   keep reusing "inner"
+  gsl_blas_dgemm(CblasNoTrans,CblasNoTrans,1.0,VP.invPhi,inner,0.0,inner);
 
 
+  // Result of Phi^-1 x (1 + Phi^T x Phi^-1) x Y
+  gsl_vector *rightMult = gsl_vector_alloc(nParamsLT+nParamsAZ);
+  gsl_blas_dgemv(CblasNoTrans,1.0,inner,VP.Y,0.0,rightMult);
+  // Result of Y^T x [ Phi^-1 x (1 + Phi^T x Phi^-1) x Y ]
+  gsl_blas_ddot(VP.Y,rightMult,&varProSum);
+
+
+  // Now compute (data)^T x Cov^-1 x (data)
+  gsl_vector *dataRMult = gsl_vector_alloc(invCov->size1);
+  gsl_blas_dgemv(CblasNoTrans,1.0,invCov,dataVec,0.0,dataRMult);
+  gsl_blas_ddot(dataVec,dataRMult,&dataSum);
+
+
+  // FINAL CHI2 FROM VARPRO
+  chi2 = dataSum + varProSum;
 
 
 #else

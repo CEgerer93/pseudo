@@ -171,5 +171,7 @@ namespace PITD
 
   void printMat(gsl_matrix *g);
 
+  int matrixInv(gsl_matrix * M, std::map<int, gsl_matrix *> &mapInvs, int zi);
+
 }
 #endif
