@@ -16,6 +16,7 @@
 
 #include "hdf5.h"
 
+#include "pdf_fit_util.h"
 
 namespace VarPro
 {
@@ -35,19 +36,19 @@ namespace VarPro
 
     // Ints to track numbers of diff types of non-linear functions
     int numLT, numAZ;
-    int numFunc;
+    int numCorrections;
 
     // Default
     varPro() {}
     // Parametrized
-    varPro(int _numLT, int _numAZ)
+    varPro(int _numLT, int _numAZ, size_t numData)
       {
 	numLT   = _numLT; numAZ = _numAZ;
-	numFunc = _numLT + _numAZ;
-	basis   = gsl_matrix_alloc(numFunc,numFunc);
-	Y       = gsl_vector_alloc(numFunc);
-	Phi     = gsl_matrix_alloc(numFunc,numFunc);
-	invPhi  = gsl_matrix_alloc(numFunc,numFunc);
+	numCorrections = _numLT + _numAZ;
+	basis   = gsl_matrix_calloc(numCorrections,numData);
+	Y       = gsl_vector_alloc(numCorrections);
+	Phi     = gsl_matrix_calloc(numCorrections,numCorrections);
+	invPhi  = gsl_matrix_calloc(numCorrections,numCorrections);
       }
  
     // Destructor
@@ -56,9 +57,9 @@ namespace VarPro
     // Populate the non-linear basis of functions
     void makeBasis(double a, double b, std::vector<std::pair<int, double> > &nuz);
     // Populate Y Solution vector
-    void makeY(gsl_vector *data, gsl_matrix *invCov);
+    void makeY(gsl_vector *data, gsl_matrix *invCov, pdfFitParams_t &fitParams);
     // Populate Phi matrix
-    void makePhi(gsl_matrix *invCov);
+    void makePhi(gsl_matrix *invCov, pdfFitParams_t &fitParams);
     // Get the inverse of Phi matrix
     void getInvPhi();
     

@@ -23,6 +23,14 @@ namespace PITD
     return os;
   }
 
+  // Generic gsl_vector viewer
+  void printVec(gsl_vector *g)
+  {
+    std::cout << "{";
+    for ( size_t i = 0; i < g->size; i++ )
+      std::cout << gsl_vector_get(g,i) << ",";
+    std::cout << "}\n";
+  }
 
   // Generic gsl_matrix viewer
   void printMat(gsl_matrix *g)
@@ -30,7 +38,7 @@ namespace PITD
     std::cout << "{";
     for ( size_t i = 0; i < g->size1; i++ ) {
       std::cout << "{";
-      for ( size_t j = 0; j < g->size1; j++ ) {
+      for ( size_t j = 0; j < g->size2; j++ ) {
 	std::cout << gsl_matrix_get(g,i,j) << ",";
       }
       std::cout << "},\n";
@@ -80,8 +88,10 @@ namespace PITD
 
     // Vector of singular values that are larger than specified cut
     std::vector<double> aboveCutVals;
-    
+
+#if 0
     std::cout << "The singular values above SVD Cut = " << svdCut << " are..." << std::endl;
+#endif
     for ( int s = 0; s < dataDim; s++ )
       {
     	double dum = gsl_vector_get(S,s);
@@ -100,7 +110,7 @@ namespace PITD
     for ( int m = 0; m < dataDim; m++ )
       {
     	gsl_matrix_set(pseudoSInvMat,m,m,gsl_vector_get(pseudoSInv,m));
-    	std::cout << gsl_vector_get(pseudoSInv,m) << std::endl;
+    	// std::cout << gsl_vector_get(pseudoSInv,m) << std::endl;
       }
 
     /*

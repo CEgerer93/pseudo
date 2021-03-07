@@ -169,6 +169,8 @@ namespace PITD
   void H5Write(char *outH5, reducedPITD *dat, int gauge_configs, int zmin, int zmax, int pmin,
 	       int pmax, std::string dTypeName);
 
+  void printVec(gsl_vector *g);
+
   void printMat(gsl_matrix *g);
 
   int matrixInv(gsl_matrix * M, std::map<int, gsl_matrix *> &mapInvs, int zi);
