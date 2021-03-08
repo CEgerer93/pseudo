@@ -99,11 +99,14 @@ namespace VarPro
 	    gsl_blas_ddot(&k_slice.vector,rMult,&sum);
 
 
-	    // Include contributions from priors!!!!!!
-	    if ( k < numLT )
-	      sum += (1.0/pow(fitParams.width[k],2));
-	    if ( k >= numLT )
-	      sum += (1.0/pow(fitParams.az_width[k-numLT],2));
+	    // Include contributions from priors!!!!!! - only appear on diagonal of Phi matrix
+	    if ( k == l )
+	      {
+		if ( k < numLT )
+		  sum += (1.0/pow(fitParams.width[k],2));
+		if ( k >= numLT )
+		  sum += (1.0/pow(fitParams.az_width[k-numLT],2));
+	      }
 
 	    // Insert this value into the Phi matrix
 	    gsl_matrix_set(Phi, k, l, sum);
@@ -126,5 +129,11 @@ namespace VarPro
     invPhi = dumMap.begin()->second;
   }
 
-
+  // /*
+  //   Return the solution of varpro
+  // */
+  // void varPro::getSoln()
+  // {
+  //   gsl_blas_dgemv(CblasNoTrans,1.0,VP.invPhi,VP.Y,0.0,soln);
+  // }
 }

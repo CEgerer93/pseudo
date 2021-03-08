@@ -55,6 +55,7 @@ struct pdfFitParams_t
 
   gsl_vector *lt_sigmaN, *lt_fitParams;
   gsl_vector *az_sigmaN, *az_fitParams;
+  int nParams;
 
 
   // Let's try some Bayesian prior stuff
@@ -126,6 +127,8 @@ pdfFitParams_t(int _pt, double _a, double _b, gsl_vector *lt, gsl_vector *az)
     lt_fitParams = lt; az_fitParams = az;
     lt_sigmaN = gsl_vector_alloc(lt->size);
     az_sigmaN = gsl_vector_alloc(az->size);
+
+    nParams = lt->size + az->size;
     // Now set the parameter map for easy printing
     std::string qtype;
     if ( pdfType == 0 )
@@ -134,21 +137,21 @@ pdfFitParams_t(int _pt, double _a, double _b, gsl_vector *lt, gsl_vector *az)
       qtype = "q+";
 
     pmap[0] = "alpha (" + qtype + ")"; pmap[1] = "beta (" + qtype + ")";
-    // int p;
-    // if ( pdfType == 0 )
-    //   {
-    // 	for ( p = 2; p < 2+lt_sigmaN->size-1; p++ )
-    // 	  pmap[p] = "C[" + std::to_string(p-1) + "] (" + qtype +")";
-    // 	for ( p = 2+lt_sigmaN->size-1; p < nParams; p++ )
-    // 	  pmap[p] = "C_az[" + std::to_string(p-2-lt_sigmaN->size+1) + "] (" + qtype + ")";
-    //   }
-    // if ( pdfType == 1 )
-    //   {
-    // 	for ( p = 2; p < 2+lt_sigmaN->size; p++ )
-    // 	  pmap[p] = "C[" + std::to_string(p-2) + "] (" + qtype +")";
-    // 	for ( p = 2+lt_sigmaN->size; p < nParams; p++ )
-    // 	  pmap[p] = "C_az[" + std::to_string(p-2-lt_sigmaN->size) + "] (" + qtype + ")";
-    //   }
+    /* int p; */
+    /* if ( pdfType == 0 ) */
+    /*   { */
+    /* 	for ( p = 2; p < 2+lt->size-1; p++ ) */
+    /* 	  pmap[p] = "C[" + std::to_string(p-1) + "] (" + qtype +")"; */
+    /* 	for ( p = 2+lt_sigmaN->size-1; p < nParams; p++ ) */
+    /* 	  pmap[p] = "C_az[" + std::to_string(p-2-lt_sigmaN->size+1) + "] (" + qtype + ")"; */
+    /*   } */
+    /* if ( pdfType == 1 ) */
+    /*   { */
+    /* 	for ( p = 2; p < 2+lt->size; p++ ) */
+    /* 	  pmap[p] = "C[" + std::to_string(p-2) + "] (" + qtype +")"; */
+    /* 	for ( p = 2+lt_sigmaN->size; p < nParams; p++ ) */
+    /* 	  pmap[p] = "C_az[" + std::to_string(p-2-lt_sigmaN->size) + "] (" + qtype + ")"; */
+    /*   } */
   }
 };
 

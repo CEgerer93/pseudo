@@ -34,6 +34,8 @@ namespace VarPro
     // Phi_{ij} = \sum_k Phi_i(non-linear params; nu, z)*Phi_j(non-linear params; nu, z) w/ k a tuple of (nu, z)
     gsl_matrix * invPhi;
 
+    gsl_vector * soln; // The variable projection solution for linear constants
+
     // Ints to track numbers of diff types of non-linear functions
     int numLT, numAZ;
     int numCorrections;
@@ -47,6 +49,7 @@ namespace VarPro
 	numCorrections = _numLT + _numAZ;
 	basis   = gsl_matrix_calloc(numCorrections,numData);
 	Y       = gsl_vector_alloc(numCorrections);
+	soln    = gsl_vector_alloc(numCorrections);
 	Phi     = gsl_matrix_calloc(numCorrections,numCorrections);
 	invPhi  = gsl_matrix_calloc(numCorrections,numCorrections);
       }
@@ -62,6 +65,8 @@ namespace VarPro
     void makePhi(gsl_matrix *invCov, pdfFitParams_t &fitParams);
     // Get the inverse of Phi matrix
     void getInvPhi();
+    // Return the solution of varpro
+    void getSoln();
     
   };
 

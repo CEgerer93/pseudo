@@ -362,6 +362,11 @@ double chi2Func(const gsl_vector * x, void *data)
   gsl_blas_dgemv(CblasNoTrans,1.0,VP.invPhi,VP.Y,0.0,rightMult);
   gsl_blas_ddot(VP.Y,rightMult,&varProSum);
   varProSum *= -1;
+
+  // rightMult also happens to be the solution vector of linear constants
+  VP.soln = rightMult;
+  std::cout << "CONST VEC =   "; printVec(VP.soln);
+
   /*
     End of Christos' version
   */
@@ -407,6 +412,10 @@ double chi2Func(const gsl_vector * x, void *data)
   // Log-normal on alpha, beta?
   chi2 += (pow( (log(dumA + 1) - nlPriors[0]), 2))/pow(nlWidths[0],2)
     + (pow( (log(dumB + 1) - sqrt(nlPriors[1]) ), 2))/pow(nlWidths[1],2);
+
+  // Require c0 = B(a+1,b+1)^-1 for qv
+  if ( pdfType == 0 )
+    chi2 += 1000000000000*pow(gsl_vector_get(VP.soln,0) - 1.0/betaFn(dumA+1,dumB+1),2);
 
 #endif
 
@@ -684,6 +693,10 @@ int main( int argc, char *argv[] )
       if ( pdfType == 1 )
 	reducedChiSq = chiSq / (distribution.data.covI->size1 - nParams - distribution.data.svsFullI);
       // distribution.data.svsFullI)  -OR- numCut ?!?!?!?!
+
+
+      // std::cout << "AHHH: " << distribution.data.covI->size1 << " " << nParams
+      // 		<< " " << distribution.data.svsFullI << std::endl;
 
       
       
