@@ -250,7 +250,7 @@ namespace PITD
   }
 
   /*
-    Support for Taylor expansion of (pITD->PDF Kernel)*(Jacobi PDF Parametrization)
+    Support for Taylor expansion of Real(pITD->PDF Kernel)*(Jacobi PDF Parametrization)
   */
   double pitd_texp_sigma_n(int n, int trunc, double a, double b, double nu, int z)
   {
@@ -265,9 +265,26 @@ namespace PITD
       }
     return sum;
   }
+  
+  /*
+    Support for Taylor expansion of Imag(pITD->PDF Kernel)*(Jacobi PDF Parametrization)
+  */
+  double pitd_texp_eta_n(int n, int trunc, double a, double b, double nu, int z)
+  {
+    double sum(0.0);
+    for ( int j = 0; j <= n; j++ )
+      {
+	for ( int k = 0; k <= trunc; k++ )
+	  {
+	    sum += (pow(-1,k)/gsl_sf_fact(2*k+1))*texp_cn(2*k+1,z)*
+	      coeffJacobi(n,j,a,b)*betaFn(a+2*k+j+2,b+1)*pow(nu,2*k+1);
+	  }
+      }
+    return sum;
+  }
 
   /*
-    Support for Taylor expansion of (pITD->PDF Kernel *TREE LEVEL*)*(Jacobi PDF Parametrization)
+    Support for Taylor expansion of Real(pITD->PDF Kernel *TREE LEVEL*)*(Jacobi PDF Parametrization)
   */
   double pitd_texp_sigma_n_treelevel(int n, int trunc, double a, double b, double nu)
   {
@@ -280,4 +297,19 @@ namespace PITD
     return sum;
   }
 
+  /*
+    Support for Taylor expansion of Imag(pITD->PDF Kernel *TREE LEVEL*)*(Jacobi PDF Parametrization)
+  */
+  double pitd_texp_eta_n_treelevel(int n, int trunc, double a, double b, double nu)
+  {
+    double sum(0.0);
+    for ( int j = 0; j <= n; j++ )
+      {
+	for ( int k = 0; k <= trunc; k++ )
+	  {
+	    sum += (pow(-1,k)/gsl_sf_fact(2*k+1))*1.0*coeffJacobi(n,j,a,b)*betaFn(a+2*k+j+2,b+1)*pow(nu,2*k+1);
+	  }
+      }
+    return sum;
+  }
 }

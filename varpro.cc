@@ -22,11 +22,23 @@ namespace VarPro
 	for ( auto v = nuz.begin(); v != nuz.end(); ++v )
 	  {
 	    if ( l < numLT ) // Leading twist
-	      gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
-			     pitd_texp_sigma_n(l, 85, a, b, v->second, v->first) );
+	      {
+		if ( pdfType == 0 )
+		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
+				 pitd_texp_sigma_n(l, 85, a, b, v->second, v->first) );
+		if ( pdfType == 1 )
+		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
+				 pitd_texp_eta_n(l, 75, a, b, v->second, v->first) );
+	      }
 	    if ( l >= numLT ) // (a/z)^2 corrections
-	      gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
-			     pow((1.0/v->first),2)*pitd_texp_sigma_n_treelevel(l, 85, a, b, v->second) );
+	      {
+		if ( pdfType == 0 )
+		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
+				 pow((1.0/v->first),2)*pitd_texp_sigma_n_treelevel(l, 85, a, b, v->second) );
+		if ( pdfType == 1 )
+		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
+				 pow((1.0/v->first),2)*pitd_texp_eta_n_treelevel(l, 75, a, b, v->second) );
+	      }
 	  } // nuz
       } // l
   }

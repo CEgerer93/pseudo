@@ -282,7 +282,7 @@ double chi2Func(const gsl_vector * x, void *data)
 
 
 #ifdef VARPRO
-  varPro VP(nParamsLT, nParamsAZ, nuz.size());
+  varPro VP(nParamsLT, nParamsAZ, nuz.size(), pdfType);
 
   VP.makeBasis(dumA, dumB, nuz);
   VP.makeY(dataVec, invCov, pdfp);

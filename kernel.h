@@ -67,14 +67,24 @@ namespace PITD
   double texp_dn(int n);
 
   /*
-    Support for Taylor expansion of (pITD->PDF Kernel)*(Jacobi PDF Parametrization)
+    Support for Taylor expansion of Real(pITD->PDF Kernel)*(Jacobi PDF Parametrization)
   */
   double pitd_texp_sigma_n(int n, int trunc, double a, double b, double nu, int z);
 
   /*
-    Support for Taylor expansion of (pITD->PDF Kernel *TREE LEVEL*)*(Jacobi PDF Parametrization)
+    Support for Taylor expansion of Imag(pITD->PDF Kernel)*(Jacobi PDF Parametrization)
+  */
+  double pitd_texp_eta_n(int n, int trunc, double a, double b, double nu, int z);
+
+  /*
+    Support for Taylor expansion of Real(pITD->PDF Kernel *TREE LEVEL*)*(Jacobi PDF Parametrization)
   */
   double pitd_texp_sigma_n_treelevel(int n, int trunc, double a, double b, double nu);
+
+  /*
+    Support for Taylor expansion of Imag(pITD->PDF Kernel *TREE LEVEL*)*(Jacobi PDF Parametrization)
+  */
+  double pitd_texp_eta_n_treelevel(int n, int trunc, double a, double b, double nu);
 
 }
 #endif

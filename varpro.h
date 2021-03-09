@@ -40,11 +40,14 @@ namespace VarPro
     int numLT, numAZ;
     int numCorrections;
 
+    int pdfType;
+
     // Default
     varPro() {}
     // Parametrized
-    varPro(int _numLT, int _numAZ, size_t numData)
+    varPro(int _numLT, int _numAZ, size_t numData, int _pdfType)
       {
+	pdfType = _pdfType;
 	numLT   = _numLT; numAZ = _numAZ;
 	numCorrections = _numLT + _numAZ;
 	basis   = gsl_matrix_calloc(numCorrections,numData);
