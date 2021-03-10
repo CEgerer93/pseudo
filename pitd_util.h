@@ -137,23 +137,11 @@ namespace PITD
     // View inverse of a covariance matrix
     void viewZCovInvMat(int zsep);
 
-
-    /*
-      Isolate a single jackknife sample
-    */
-
     
   private:
     int gauge_configs;
     int zminCut, zmaxCut, pminCut, pmaxCut;
   };
-
-
-  /* // Print real/imag (comp) ensemble average data for provided zsep */
-  /* void reducedPITD::ensemPrintZ(int zf, int c) {} */
-
-  /* // Print the real/imag (comp) polynomial fit parameters to ensemble average data for provided zsep */
-  /* void reducedPITD::polyFitPrint(int zf, int comp) {} */
 
   
   /*

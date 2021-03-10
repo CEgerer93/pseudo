@@ -63,112 +63,6 @@ int nParams, nParamsLT, nParamsAZ, nParamsT4, pdfType; // Determine pdf to fit &
 std::vector<double> nlPriors {0.0, 3.0}; // {alpha,beta}
 std::vector<double> nlWidths {0.25, 0.25};
 
-// /*
-//   Parameters describing pheno PDF fit
-// */
-// struct pdfFitParams_t
-// {
-//   double alpha, beta;           // the leading parameters i.e. x^alpha*(1-x)^beta
-
-//   gsl_vector *lt_sigmaN, *lt_fitParams;
-//   gsl_vector *az_sigmaN, *az_fitParams;
-
-
-//   // Let's try some Bayesian prior stuff
-//   std::vector<double> prior {0.0, 0.0, 0.0};
-//   std::vector<double> width {1.1, 0.5, 0.25};
-
-//   std::vector<double> az_prior {0.0, 0.0, 0.0};
-//   std::vector<double> az_width {0.25, 0.25, 0.25};
-  
-
-//   // std::map<double, double> priors;
-//   // prior
-
-
-//   std::map<int, std::string> pmap; // map to print fit parameter string and values during fit
-
-//   // Set barriers
-//   std::pair<int,int> alphaRestrict = std::make_pair(-1,1);
-//   std::pair<int,int> betaRestrict = std::make_pair(0.5,5);
-
-
-//   void setSigmaN(double nu, int z)
-//   {
-//     for ( size_t l = 0; l < lt_sigmaN->size; l++ )
-//       gsl_vector_set(lt_sigmaN, l, pitd_texp_sigma_n(l, 85, alpha, beta, nu, z) );
-//   }
-
-//   void setCorrectionSigmaN(double nu, int z)
-//   {
-//     for ( size_t l = 0; l < az_sigmaN->size; l++ )
-//       gsl_vector_set(az_sigmaN, l, pow((1.0/z),2)*pitd_texp_sigma_n_treelevel(l+1, 85, alpha, beta, nu) );
-//     // Correction starts for n=1 -> \infty
-//   }
-
-//   // Return the fit predicted pITD
-//   double pitdFit(double nu, int z)
-//   {
-//     double sumLT(0.0), sumAZ(0.0);
-//     setSigmaN(nu, z);
-//     setCorrectionSigmaN(nu, z);
-//     gsl_blas_ddot(lt_sigmaN, lt_fitParams, &sumLT); //  (leading-twist sigma_n)^T \cdot (leading-twist params)
-//     gsl_blas_ddot(az_sigmaN, az_fitParams, &sumAZ); //  (a^2/z^2 sigma_n)^T \cdot (a^2/z^2 params)
-//     return sumLT+sumAZ;
-//   }
-
-//   // Print the current fit values
-//   void printFit(gsl_vector *v)
-//   {
-//     for ( auto p = pmap.begin(); p != pmap.end(); ++p )
-//       std::cout << std::setprecision(10) << "  " << p->second << " =  " << gsl_vector_get(v,p->first);
-//     std::cout << "\n";
-//   }
-
-//   // Write best fit values to file
-//   void write(std::ofstream &os, double redChi2, gsl_vector *v)
-//   {
-//     os << std::setprecision(10) << redChi2 << " ";
-//     for ( auto p = pmap.begin(); p != pmap.end(); ++p )
-//       os << gsl_vector_get(v,p->first) << " ";
-//     os << "\n";
-//   }
-
-//   // Default/Parametrized constructor w/ initializer lists
-//   pdfFitParams_t() : alpha(0.0), beta(0.0) {}
-//   pdfFitParams_t(double _a, double _b, gsl_vector *lt, gsl_vector *az)
-//     : alpha(_a), beta(_b)// , lt_fitParams{lt}, az_fitParams{az}
-//   {
-//     // Set the param/jacobi poly vectors
-//     lt_fitParams = lt; az_fitParams = az;
-//     lt_sigmaN = gsl_vector_alloc(lt->size);
-//     az_sigmaN = gsl_vector_alloc(az->size);
-//     // Now set the parameter map for easy printing
-//     std::string qtype;
-//     if ( pdfType == 0 )
-//       qtype = "qv";
-//     if ( pdfType == 1 )
-//       qtype = "q+";
-
-//     pmap[0] = "alpha (" + qtype + ")"; pmap[1] = "beta (" + qtype + ")";
-//     // int p;
-//     // if ( pdfType == 0 )
-//     //   {
-//     // 	for ( p = 2; p < 2+lt_sigmaN->size-1; p++ )
-//     // 	  pmap[p] = "C[" + std::to_string(p-1) + "] (" + qtype +")";
-//     // 	for ( p = 2+lt_sigmaN->size-1; p < nParams; p++ )
-//     // 	  pmap[p] = "C_az[" + std::to_string(p-2-lt_sigmaN->size+1) + "] (" + qtype + ")";
-//     //   }
-//     // if ( pdfType == 1 )
-//     //   {
-//     // 	for ( p = 2; p < 2+lt_sigmaN->size; p++ )
-//     // 	  pmap[p] = "C[" + std::to_string(p-2) + "] (" + qtype +")";
-//     // 	for ( p = 2+lt_sigmaN->size; p < nParams; p++ )
-//     // 	  pmap[p] = "C_az[" + std::to_string(p-2-lt_sigmaN->size) + "] (" + qtype + ")";
-//     //   }
-//   }
-// };
-
 /*
   MULTIDIMENSIONAL MINIMIZATION - CHI2 
   MINIMIZE LEAST-SQUARES BETWEEN DATA AND NUMERICALLY INTEGRATED MATCHING KERNEL AND pITD
@@ -195,25 +89,10 @@ double chi2Func(const gsl_vector * x, void *data)
     case 0: // QVAL
       dumLTFit = gsl_vector_alloc(nParamsLT);
       gsl_vector_set(dumLTFit, 0, 1.0/betaFn(dumA+1,dumB+1) );
-      // for ( int d = 2; d < 2+nParamsLT-1; d++ )
-      // 	gsl_vector_set(dumLTFit, d-1, gsl_vector_get(x, d) );
-
-      // // Now grab the correction coefficients
-      // for ( int d = 2+dumLTFit->size-1; d < nParams; d++ )
-      // 	gsl_vector_set(dumAZFit, d-1-dumLTFit->size, gsl_vector_get(x, d));
-
-      // break;
-
+      break;
     case 1: // QPLUS
       dumLTFit = gsl_vector_alloc(nParamsLT);
-      
-      // for ( int d = 2; d < 2 + nParamsLT; d++ )
-      // 	gsl_vector_set(dumLTFit, d-2, gsl_vector_get(x, d));
-      // // Nor grab the correction coefficients
-      // for ( int d = 2 + nParamsLT; d < nParams; d++ )
-      // 	gsl_vector_set(dumAZFit, d-2-nParamsLT, gsl_vector_get(x, d));
-
-      // break;
+      break;
     }
   // Now set the pdf params within a pdfFitParams_t struct instance
   pdfFitParams_t pdfp(pdfType, dumA, dumB, dumLTFit, dumAZFit, dumT4Fit);
@@ -238,13 +117,9 @@ double chi2Func(const gsl_vector * x, void *data)
     Set the difference btwn convolution and jack data
   */
 #pragma omp parallel num_threads(ptrJack->data.disps.size())
-// #pragma omp parallel
-// #pragma omp for
   for ( auto zz = ptrJack->data.disps.begin(); zz != ptrJack->data.disps.end(); ++zz )
     {
 #pragma omp parallel num_threads(zz->second.moms.size())
-// #pragma omp parallel
-// #pragma omp for
       for ( auto mm = zz->second.moms.begin(); mm != zz->second.moms.end(); ++mm )
 	{
 	  // The index
@@ -290,13 +165,6 @@ double chi2Func(const gsl_vector * x, void *data)
   VP.makePhi(invCov, pdfp);
   VP.getInvPhi(); // compute inverse of Phi matrix
 
-  // std::cout << "Checking suitable inverse was found" << std::endl;
-  // gsl_matrix * xid = gsl_matrix_alloc(VP.Phi->size1,VP.Phi->size2);
-  // gsl_matrix_set_zero(xid);
-  // gsl_blas_dgemm(CblasNoTrans,CblasNoTrans,1.0,VP.Phi,VP.invPhi,0.0,xid);
-  // printMat(xid);
-  // exit(8);
-
   // std::cout << "VP.basis = \n"; printMat(VP.basis); std::cout << "\n";
   // std::cout << "VP.Y = \n"; printVec(VP.Y); std::cout << "\n";
   // std::cout << "VP.Phi = \n"; printMat(VP.Phi); std::cout << "\n";
@@ -313,57 +181,9 @@ double chi2Func(const gsl_vector * x, void *data)
   gsl_matrix_set_identity(id);
   gsl_matrix *inner = gsl_matrix_calloc(nParamsLT+nParamsAZ+nParamsT4, nParamsLT+nParamsAZ+nParamsT4);
 
-  /*
-    Original attempt here
-  */
-  // // Result of Phi^T x Phi^-1  ; stored in "inner"
-  // gsl_blas_dgemm(CblasTrans,CblasNoTrans,1.0,VP.Phi,VP.invPhi,0.0,inner);
-  // // std::cout << "Inner = \n"; printMat(inner);
-
-  // // Result of   inner x ID + ID   (or 1 + Phi^T x Phi^-1 ); stored in "id"
-  // gsl_blas_dgemm(CblasNoTrans,CblasNoTrans,1.0,inner,id,1.0,id);
-  // // printMat(id); std::cout << "\n";
-
-  // // Clear contents of inner
-  // gsl_matrix_set_zero(inner);
-
-  // // Result of Phi^-1 x ( 1 + Phi^T x Phi^-1 ) stored in "inner"
-  // gsl_blas_dgemm(CblasNoTrans,CblasNoTrans,1.0,VP.invPhi,id,0.0,inner);
-  // // printMat(inner); std::cout << "\n";
-
-
-  // // Result of Phi^-1 x (1 + Phi^T x Phi^-1) x Y
-  // gsl_vector *rightMult = gsl_vector_alloc(nParamsLT+nParamsAZ);
-  // gsl_blas_dgemv(CblasNoTrans,1.0,inner,VP.Y,0.0,rightMult);
-  // // Result of Y^T x [ Phi^-1 x (1 + Phi^T x Phi^-1) x Y ]
-  // // std::cout <<"RIGHTMULT" << std::endl; printVec(rightMult);
-  // gsl_blas_ddot(VP.Y,rightMult,&varProSum);
-  /*
-    End of original attempt
-  */
-
-  
-  // /*
-  //   Another f*ing attempt
-  // */
-  // // Result of Phi x (Phi^-1)^T  ; stored in "inner"
-  // gsl_blas_dgemm(CblasNoTrans,CblasTrans,1.0,VP.Phi,VP.invPhi,0.0,inner);
-  // // Result of   inner x ID + ID   (or 1 + Phi x (Phi^-1)^T ); stored in "id"
-  // gsl_blas_dgemm(CblasNoTrans,CblasNoTrans,1.0,inner,id,1.0,id);
-  // // Clear contents of inner
-  // gsl_matrix_set_zero(inner);
-  // // Result of (Phi^-1)^T x ( 1 + Phi x (Phi^-1)^T ) stored in "inner"
-  // gsl_blas_dgemm(CblasTrans,CblasNoTrans,1.0,VP.invPhi,id,0.0,inner);
-  // // Result of (Phi^-1)^T x (1 + Phi x (Phi^-1)^T ) x Y
-  // gsl_vector *rightMult = gsl_vector_alloc(nParamsLT+nParamsAZ);
-  // gsl_blas_dgemv(CblasNoTrans,1.0,inner,VP.Y,0.0,rightMult);
-  // gsl_blas_ddot(VP.Y,rightMult,&varProSum);
-  // /*
-  //   End of another f*ing attempt
-  // */
 
   /*
-    Trying Christos' version
+    Determine VarPro solution for chi^2
   */
   gsl_matrix *product = gsl_matrix_alloc(VP.invPhi->size1,VP.invPhi->size2);
   gsl_matrix_memcpy(product, VP.invPhi);
@@ -373,15 +193,12 @@ double chi2Func(const gsl_vector * x, void *data)
   gsl_blas_dgemv(CblasNoTrans,1.0,product,VP.Y,0.0,rightMult);
   gsl_blas_ddot(VP.Y,rightMult,&varProSum);
   varProSum *= -1;
-
-  // rightMult also happens to be the solution vector of linear constants
-  gsl_blas_dgemv(CblasNoTrans,1.0,VP.invPhi,VP.Y,0.0,VP.soln);
-  std::cout << "CONST VEC =   "; printVec(VP.soln);
-
+  // // rightMult also happens to be the solution vector of linear constants
+  // gsl_blas_dgemv(CblasNoTrans,1.0,VP.invPhi,VP.Y,0.0,VP.soln);
+  // std::cout << "CONST VEC =   "; printVec(VP.soln);
   /*
-    End of Christos' version
+    End of VarPro solution for chi^2
   */
-
 
   // Now compute (data)^T x Cov^-1 x (data)
   gsl_vector *dataRMult = gsl_vector_alloc(invCov->size1);
@@ -391,7 +208,6 @@ double chi2Func(const gsl_vector * x, void *data)
 
   // FINAL CHI2 FROM VARPRO
   chi2 = dataSum + varProSum;
-  // std::cout << "      chi2's = " << dataSum << " " << varProSum << std::endl;
 
 #else
   // The difference vector need only be computed once, so make a second copy to form correlated chi2
@@ -413,24 +229,12 @@ double chi2Func(const gsl_vector * x, void *data)
 
 
 #ifdef CONSTRAINED
-  // // Apply Gaussian priors on linear terms
-  // for ( int i = 0; i < pdfp.lt_fitParams->size; i++ )
-  //   chi2 += pow( gsl_vector_get(pdfp.lt_fitParams,i) - pdfp.prior[i], 2)/pow(pdfp.width[i],2);
-  // for ( int i = 0; i < pdfp.az_fitParams->size; i++ )
-  //   chi2 += pow( gsl_vector_get(pdfp.az_fitParams,i) - pdfp.az_prior[i], 2)/pow(pdfp.az_width[i],2);
 
-
-  // Log-normal on alpha, beta?
+  // Log-normal on alpha, beta
   chi2 += (pow( (log(dumA + 1) - nlPriors[0]), 2))/pow(nlWidths[0],2)
     + (pow( (log(dumB + 1) - sqrt(nlPriors[1]) ), 2))/pow(nlWidths[1],2);
 
-  // // Require c0 = B(a+1,b+1)^-1 for qv
-  // if ( pdfType == 0 )
-  //   chi2 += 1000000000000*pow(gsl_vector_get(VP.soln,0) - 1.0/betaFn(dumA+1,dumB+1),2);
-
 #endif
-
-  // std::cout << "Ret CHI2 = " << chi2 << std::endl;
   return chi2;
 }
 
@@ -637,6 +441,8 @@ int main( int argc, char *argv[] )
       /*
 	BEGIN EXTRACTION OF INFO FOR THIS JACKKNIFE
       */
+      std::vector<std::pair<int, double> > nuzJK(distribution.data.invCovR->size1);
+      gsl_vector *dataVecJK = gsl_vector_alloc(distribution.data.invCovR->size1);
       // Instantiate a reducedPITD object for this jackknife
       reducedPITD thisJack(1, zmin, zmax, pmin, pmax);
       thisJack.data.invCovR = distribution.data.invCovR;
@@ -648,6 +454,9 @@ int main( int argc, char *argv[] )
 	  zvals jackMoms;
 	  for ( auto m = z->second.moms.begin(); m != z->second.moms.end(); ++m )
 	    {
+	      int idx = std::distance(z->second.moms.begin(),m) +
+		std::distance(distribution.data.disps.begin(),z)*z->second.moms.size();
+
 	      // A momVals for this jackknife
 	      momVals jMomVals; jMomVals.mat.resize(1);
 	      jMomVals.IT     = m->second.IT;
@@ -655,6 +464,18 @@ int main( int argc, char *argv[] )
 
 	      std::pair<std::string, momVals> amomJack (m->first, jMomVals);
 	      jackMoms.moms.insert(amomJack);
+
+
+	      /*
+		Don't forget to pack {nuzJK, dataVecJK} for final varPro solution
+	      */
+	      nuzJK[idx] = std::make_pair(z->first,jMomVals.IT);
+	      if ( pdfType == 0 )
+		gsl_vector_set(dataVecJK, idx, jMomVals.mat[0].real());
+	      if ( pdfType == 1 )
+		gsl_vector_set(dataVecJK, idx, jMomVals.mat[0].imag());
+	      
+	      
 	    } // end auto m
 
 	  // Pack all of the jackMoms into this jackknife jDisps map
@@ -708,8 +529,8 @@ int main( int argc, char *argv[] )
       
       
       // Return the best fit parameters
-      gsl_vector *bestFitParams = gsl_vector_alloc(pdfp_ini->size);
-      bestFitParams = gsl_multimin_fminimizer_x(fmin);
+      gsl_vector *fminBest = gsl_vector_alloc(pdfp_ini->size);
+      fminBest = gsl_multimin_fminimizer_x(fmin);
 
       // Return the best correlated Chi2
       double chiSq = gsl_multimin_fminimizer_minimum(fmin);
@@ -718,20 +539,41 @@ int main( int argc, char *argv[] )
       // [02/16/2021] Replace substraction of singular values, with datapts cut from fit
       if ( pdfType == 0 )
 	reducedChiSq = chiSq / (distribution.data.covR->size1 - nParams - distribution.data.svsFullR); 
-      // distribution.data.svsFullR)  -OR- numCut ?!?!?!?!
       if ( pdfType == 1 )
 	reducedChiSq = chiSq / (distribution.data.covI->size1 - nParams - distribution.data.svsFullI);
-      // distribution.data.svsFullI)  -OR- numCut ?!?!?!?!
 
 
-      // std::cout << "AHHH: " << distribution.data.covI->size1 << " " << nParams
-      // 		<< " " << distribution.data.svsFullI << std::endl;
+      /*
+	With optimal {alpha,beta}, make one last varPro instance and determine solution vector of constants
+      */
+      varPro solution(nParamsLT, nParamsAZ, nParamsT4, nuzJK.size(), pdfType);
+      solution.makeBasis(gsl_vector_get(fminBest,0),
+			 gsl_vector_get(fminBest,1),nuzJK);
+      if ( pdfType == 0 )
+	{
+	  solution.makeY(dataVecJK, thisJack.data.invCovR, *dumPfp);
+	  solution.makePhi(thisJack.data.invCovR, *dumPfp);
+	}
+      if ( pdfType == 1 )
+	{
+	  solution.makeY(dataVecJK, thisJack.data.invCovI, *dumPfp);
+	  solution.makePhi(thisJack.data.invCovI, *dumPfp);
+	}
+      solution.getInvPhi();
+      gsl_blas_dgemv(CblasNoTrans,1.0,solution.invPhi,solution.Y,0.0,solution.soln);
+      std::cout << "[BEST] CONST VEC = "; printVec(solution.soln);
 
-      
-      
+      gsl_vector *bestFitParams = gsl_vector_alloc(nParams);
+      gsl_vector_set(bestFitParams,0,gsl_vector_get(fminBest,0));
+      gsl_vector_set(bestFitParams,1,gsl_vector_get(fminBest,1));
+      for ( int b = 2; b < bestFitParams->size; b++ )
+	gsl_vector_set(bestFitParams,b,gsl_vector_get(solution.soln,b-2));
+      ///////////////////////////////////////////////////////////////////////////////////////////
+
+
       std::cout << " For jackknife sample J = " << itJ << ", Converged after " << k
 		<<" iterations, Optimal Chi2/dof = " << reducedChiSq << std::endl;
-      dumPfp->printFit(bestFitParams);
+      dumPfp->printBest(bestFitParams);
       
 
 
@@ -780,7 +622,7 @@ int main( int argc, char *argv[] )
 
       
       // Write the fit results to a file
-      // best->write(OUT, reducedChiSq);
+      dumPfp->write(OUT, reducedChiSq, bestFitParams);
       OUT.flush();
 
       // delete best;

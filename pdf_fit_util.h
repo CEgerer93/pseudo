@@ -72,9 +72,6 @@ struct pdfFitParams_t
 
   std::map<int, std::string> pmap; // map to print fit parameter string and values during fit
 
-  // Set barriers
-  std::pair<int,int> alphaRestrict = std::make_pair(-1,1);
-  std::pair<int,int> betaRestrict = std::make_pair(0.5,5);
 
 
   /* void setSigmaN(double nu, int z) */
@@ -104,6 +101,23 @@ struct pdfFitParams_t
   // Print the current fit values
   void printFit(gsl_vector *v)
   {
+    for ( auto p = pmap.begin(); p != pmap.end(); ++p )
+      std::cout << std::setprecision(10) << "  " << p->second << " =  " << gsl_vector_get(v,p->first);
+    std::cout << "\n";
+  }
+
+  // Print the best fit values
+  void printBest(gsl_vector *v)
+  {
+    // Add best fit constants from VarPro before printing fit
+    int b;
+    for ( b = 2; b < lt_fitParams->size+2; b++ )
+      pmap[b] = "C_lt" + std::to_string(b-2);
+    for ( b = lt_fitParams->size + 2; b < lt_fitParams->size + az_fitParams->size + 2; b++ )
+      pmap[b] = "C_az" + std::to_string(b-lt_fitParams->size-2);
+    for ( b = lt_fitParams->size + az_fitParams->size + 2; b < 2 + nParams; b++ )
+      pmap[b] = "C_t4" + std::to_string(b-lt_fitParams->size-az_fitParams->size-2);
+
     for ( auto p = pmap.begin(); p != pmap.end(); ++p )
       std::cout << std::setprecision(10) << "  " << p->second << " =  " << gsl_vector_get(v,p->first);
     std::cout << "\n";
