@@ -290,6 +290,13 @@ double chi2Func(const gsl_vector * x, void *data)
   VP.makePhi(invCov, pdfp);
   VP.getInvPhi(); // compute inverse of Phi matrix
 
+  // std::cout << "Checking suitable inverse was found" << std::endl;
+  // gsl_matrix * xid = gsl_matrix_alloc(VP.Phi->size1,VP.Phi->size2);
+  // gsl_matrix_set_zero(xid);
+  // gsl_blas_dgemm(CblasNoTrans,CblasNoTrans,1.0,VP.Phi,VP.invPhi,0.0,xid);
+  // printMat(xid);
+  // exit(8);
+
   // std::cout << "VP.basis = \n"; printMat(VP.basis); std::cout << "\n";
   // std::cout << "VP.Y = \n"; printVec(VP.Y); std::cout << "\n";
   // std::cout << "VP.Phi = \n"; printMat(VP.Phi); std::cout << "\n";
@@ -482,7 +489,8 @@ int main( int argc, char *argv[] )
   if ( pdfType == 0 )
     {
       matelemType="qv_"+matelemType;
-      nParams = 2 + (nParamsLT - 1) + nParamsAZ + nParamsT4; // C_0 coeff fixed by PDF normalization
+      // nParams = 2 + (nParamsLT - 1) + nParamsAZ + nParamsT4; // C_0 coeff fixed by PDF normalization
+      nParams = 2 + nParamsLT + nParamsAZ + nParamsT4;
       dumLTIni = gsl_vector_alloc(nParamsLT); //  - 1);
     }
   dumAZIni = gsl_vector_alloc(nParamsAZ);

@@ -23,7 +23,10 @@ namespace VarPro
 	// Evaluate the l^th basis function at each {nu,z} combo
 	for ( auto v = nuz.begin(); v != nuz.end(); ++v )
 	  {
-	    if ( l < numLT ) // Leading twist
+	    /*
+	      Leading Twist : \sum from l = 0 of pitd_texp_<sigma,eta>_n
+	    */
+	    if ( l < numLT )
 	      {
 		if ( pdfType == 0 )
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
@@ -32,23 +35,33 @@ namespace VarPro
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
 				 pitd_texp_eta_n(l, 75, a, b, v->second, v->first) );
 	      }
-	    else if ( l >= numLT && l < numLT + numAZ ) // (a/z)^2 corrections
+	    /*
+	      (a/z)^2 corrections : \sum from l = 1 of pitd_texp_<sigma,eta>_n_treelevel
+	                            So l passed to pitd_texp_<sigma,eta>_n_treelevel
+				    needs to be shifted to l-2
+	    */
+	    else if ( l >= numLT && l < numLT + numAZ )
 	      {
 		if ( pdfType == 0 )
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
-				 pow((1.0/v->first),2)*pitd_texp_sigma_n_treelevel(l, 85, a, b, v->second) );
+				 pow((1.0/v->first),2)*pitd_texp_sigma_n_treelevel(l-2, 85, a, b, v->second) );
 		if ( pdfType == 1 )
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
-				 pow((1.0/v->first),2)*pitd_texp_eta_n_treelevel(l, 75, a, b, v->second) );
+				 pow((1.0/v->first),1)*pitd_texp_eta_n_treelevel(l-2, 75, a, b, v->second) );
 	      }
-	    else if ( l >= numLT + numAZ ) // (z*Lambda_qcd)^2 corrections
+	    /*
+	      (z*Lambda_qcd)^2 corrections : \sum from l = 1 of pitd_texp_<sigma,eta>_n_treelevel
+	                                     So l passed to pitd_texp_<sigma,eta>_n_treelevel
+					     needs to be shifted to l-5
+	    */
+	    else if ( l >= numLT + numAZ )
 	      {
 		if ( pdfType == 0 )
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
-				 pow(v->first*LAMBDA,2)*pitd_texp_sigma_n_treelevel(l, 85, a, b, v->second) );
+				 pow(v->first*LAMBDA,2)*pitd_texp_sigma_n_treelevel(l-5, 85, a, b, v->second) );
 		if ( pdfType == 1 )
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
-				 pow(v->first*LAMBDA,2)*pitd_texp_eta_n_treelevel(l, 75, a, b, v->second) );
+				 pow(v->first*LAMBDA,1)*pitd_texp_eta_n_treelevel(l-5, 75, a, b, v->second) );
 	      }
 	  } // nuz
       } // l
