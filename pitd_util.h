@@ -20,10 +20,10 @@
  */
 const double Cf = 4.0/3.0;
 const double hbarc = 0.1973269804;       // GeV * fm
-const double aLat = 0.094;               // fm
-const double muRenorm = 2.0;             // GeV
+const double aLat = 0.094; // 0.0749;                // fm
+const double muRenorm = 2.0; //4.0;             // GeV
 const double MU = (aLat*muRenorm)/hbarc; // fm^-1
-const double alphaS = 0.303;
+const double alphaS = 0.303; // 0.2;
 
 
 namespace PITD

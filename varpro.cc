@@ -8,6 +8,8 @@
 
 using namespace PITD;
 
+const double LAMBDA = 0.286 * (aLat/hbarc); // GeV * ( a [fm] / hbarc [ GeV * fm ] )
+
 namespace VarPro
 {
   /*
@@ -30,7 +32,7 @@ namespace VarPro
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
 				 pitd_texp_eta_n(l, 75, a, b, v->second, v->first) );
 	      }
-	    if ( l >= numLT ) // (a/z)^2 corrections
+	    else if ( l >= numLT && l < numLT + numAZ ) // (a/z)^2 corrections
 	      {
 		if ( pdfType == 0 )
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
@@ -38,6 +40,15 @@ namespace VarPro
 		if ( pdfType == 1 )
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
 				 pow((1.0/v->first),2)*pitd_texp_eta_n_treelevel(l, 75, a, b, v->second) );
+	      }
+	    else if ( l >= numLT + numAZ ) // (z*Lambda_qcd)^2 corrections
+	      {
+		if ( pdfType == 0 )
+		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
+				 pow(v->first*LAMBDA,2)*pitd_texp_sigma_n_treelevel(l, 85, a, b, v->second) );
+		if ( pdfType == 1 )
+		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
+				 pow(v->first*LAMBDA,2)*pitd_texp_eta_n_treelevel(l, 75, a, b, v->second) );
 	      }
 	  } // nuz
       } // l
@@ -76,12 +87,15 @@ namespace VarPro
 	    priorsSum += fitParams.prior[l]/pow(fitParams.width[l],2);
 	    // std::cout << fitParams.prior[l]/pow(fitParams.width[l],2) << std::endl;
 	  }
-	if ( l >= numLT )
+	else if ( l >= numLT && l < numLT + numAZ )
 	  {
 	    // std::cout << fitParams.az_prior[l-numLT]/pow(fitParams.az_width[l-numLT],2) << std::endl;
 	    priorsSum += fitParams.az_prior[l-numLT]/pow(fitParams.az_width[l-numLT],2);
 	  }
-	
+	else if ( l >= numLT + numAZ )
+	  {
+	    priorsSum += fitParams.t4_prior[l-numLT-numAZ]/pow(fitParams.t4_width[l-numLT-numAZ],2);
+	  }
 
 	// Now set the l^th entry of Y
 	gsl_vector_set(Y, l, sum+priorsSum);
@@ -116,8 +130,10 @@ namespace VarPro
 	      {
 		if ( k < numLT )
 		  sum += (1.0/pow(fitParams.width[k],2));
-		if ( k >= numLT )
+		if ( k >= numLT && l < numLT + numAZ )
 		  sum += (1.0/pow(fitParams.az_width[k-numLT],2));
+		if ( k >= numLT + numAZ )
+		  sum += (1.0/pow(fitParams.t4_width[k-numLT-numAZ],2));
 	      }
 
 	    // Insert this value into the Phi matrix
