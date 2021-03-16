@@ -68,8 +68,6 @@ namespace VarPro
     void makePhi(gsl_matrix *invCov, pdfFitParams_t &fitParams);
     // Get the inverse of Phi matrix
     void getInvPhi();
-    // Return the solution of varpro
-    void getSoln();
     
   };
 

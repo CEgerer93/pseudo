@@ -81,9 +81,10 @@ double chi2Func(const gsl_vector * x, void *data)
   double dumA = gsl_vector_get(x,0); // alpha
   double dumB = gsl_vector_get(x,1); // beta
 
-  gsl_vector *dumLTFit;
+  gsl_vector *dumLTFit = gsl_vector_alloc(nParamsLT);
   gsl_vector *dumAZFit = gsl_vector_alloc(nParamsAZ);
   gsl_vector *dumT4Fit = gsl_vector_alloc(nParamsT4);
+#if 0
   switch(pdfType)
     {
     case 0: // QVAL
@@ -94,6 +95,7 @@ double chi2Func(const gsl_vector * x, void *data)
       dumLTFit = gsl_vector_alloc(nParamsLT);
       break;
     }
+#endif
   // Now set the pdf params within a pdfFitParams_t struct instance
   pdfFitParams_t pdfp(pdfType, dumA, dumB, dumLTFit, dumAZFit, dumT4Fit);
   
@@ -103,7 +105,7 @@ double chi2Func(const gsl_vector * x, void *data)
   */
   double chi2(0.0);
 #ifdef VARPRO
-  // collect pairs of nu and z for constructin of basis functions
+  // collect pairs of nu and z for construction of basis functions
   std::vector<std::pair<int, double> > nuz(invCov->size1);
   gsl_vector *dataVec = gsl_vector_alloc(invCov->size1);
 #else
@@ -165,12 +167,6 @@ double chi2Func(const gsl_vector * x, void *data)
   VP.makePhi(invCov, pdfp);
   VP.getInvPhi(); // compute inverse of Phi matrix
 
-  // std::cout << "VP.basis = \n"; printMat(VP.basis); std::cout << "\n";
-  // std::cout << "VP.Y = \n"; printVec(VP.Y); std::cout << "\n";
-  // std::cout << "VP.Phi = \n"; printMat(VP.Phi); std::cout << "\n";
-  // std::cout << "VP.invPhi = \n"; printMat(VP.invPhi); std::cout << "\n";
-  // exit(8);
-
   // Collect result of data vectors sandwiched between inverse of data covariance
   double dataSum(0.0);
   // Collect result of varPro matrix/vector operations
@@ -193,9 +189,6 @@ double chi2Func(const gsl_vector * x, void *data)
   gsl_blas_dgemv(CblasNoTrans,1.0,product,VP.Y,0.0,rightMult);
   gsl_blas_ddot(VP.Y,rightMult,&varProSum);
   varProSum *= -1;
-  // // rightMult also happens to be the solution vector of linear constants
-  // gsl_blas_dgemv(CblasNoTrans,1.0,VP.invPhi,VP.Y,0.0,VP.soln);
-  // std::cout << "CONST VEC =   "; printVec(VP.soln);
   /*
     End of VarPro solution for chi^2
   */
@@ -229,11 +222,19 @@ double chi2Func(const gsl_vector * x, void *data)
 
 
 #ifdef CONSTRAINED
-
   // Log-normal on alpha, beta
   chi2 += (pow( (log(dumA + 1) - nlPriors[0]), 2))/pow(nlWidths[0],2)
-    + (pow( (log(dumB + 1) - sqrt(nlPriors[1]) ), 2))/pow(nlWidths[1],2);
-
+    + (pow( (log(dumB + 1) - nlPriors[1]), 2))/pow(nlWidths[1],2);
+  // A const piece remains from VarPro w/ priors
+  for ( int c = 0; c < VP.numCorrections; c++ )
+    {
+      if ( c < VP.numLT )
+	chi2 += pow(pdfp.prior[c],2)/pow(pdfp.width[c],2);
+      if ( c >= VP.numLT && c < VP.numLT + VP.numAZ )
+	chi2 += pow(pdfp.az_prior[c-VP.numLT],2)/pow(pdfp.az_width[c-VP.numLT],2);
+      if ( c >= VP.numLT + VP.numAZ )
+	chi2 += pow(pdfp.t4_prior[c-VP.numLT-VP.numAZ],2)/pow(pdfp.t4_width[c-VP.numLT-VP.numAZ],2);
+    }
 #endif
   return chi2;
 }
@@ -268,7 +269,7 @@ int main( int argc, char *argv[] )
   ss << argv[7];  ss >> gauge_configs; ss.clear(); ss.str(std::string());
   ss << argv[8];  ss >> jkStart;       ss.clear(); ss.str(std::string());
   ss << argv[9];  ss >> jkEnd;         ss.clear(); ss.str(std::string());
-  ss << argv[10];  ss >> zmin;          ss.clear(); ss.str(std::string());
+  ss << argv[10]; ss >> zmin;          ss.clear(); ss.str(std::string());
   ss << argv[11]; ss >> zmax;          ss.clear(); ss.str(std::string());
   ss << argv[12]; ss >> pmin;          ss.clear(); ss.str(std::string());
   ss << argv[13]; ss >> pmax;          ss.clear(); ss.str(std::string());
@@ -364,51 +365,20 @@ int main( int argc, char *argv[] )
 #endif
 
 
-
-  // {
-  //   std::cout << "DUM CHECKS" << std::endl;
-  //   std::cout << "PI = " << M_PI << std::endl;
-  //   std::cout << "PIl = " << M_PIl << std::endl;
-  //   std::cout << std::setprecision(10) << "BETA = " << 1.0/betaFn(0.125+1,2.85+1) << std::endl;
-  //   std::cout << "Z^2*MU^2 = " << pow(MU*5,2) << std::endl;
-  //   std::cout << pitd_texp_sigma_n(0,40,0.125,2.85,0.19634954084936207,1) << std::endl;
-  //   std::cout << pitd_texp_sigma_n(0,40,0.125,2.85,0.39269908169872414,2) << std::endl;
-  //   std::cout << pitd_texp_sigma_n(0,40,0.125,2.85,0.5890486225480862,3) << std::endl;
-  //   std::cout << pitd_texp_sigma_n(0,40,0.125,2.85,0.7853981633974483,4) << std::endl;
-  //   std::cout << pitd_texp_sigma_n(0,40,0.125,2.85,0.9817477042468103,5) << std::endl;
-  //   std::cout << pitd_texp_sigma_n(0,40,0.125,2.85,1.1780972450961724,6) << std::endl;
-  //   exit(9);
-  // }
-
-
   /*
     SET THE STARTING PARAMETER VALUES AND INITIAL STEP SIZES ONCE
   */
   gsl_vector *pdfp_ini, *pdfpSteps;
-  // pdfFitParams_t dumPfp(0.1,0,pdfp_ini,pdfpSteps); // collect the master starting variables
   pdfFitParams_t *dumPfp;
 
   pdfp_ini  = gsl_vector_alloc(2);
   pdfpSteps = gsl_vector_alloc(2);
-  dumPfp = new pdfFitParams_t(pdfType, 0.05,2.0,dumLTIni,dumAZIni,dumT4Ini); // pass dummy LT, AZ, T4 vectors for
-                                                                             // pmap member initialization
   for ( int s = 0; s < 2; s++ ) { gsl_vector_set(pdfpSteps, s, 0.15); } // alpha, beta step sizes
-  
-  gsl_vector_set(pdfp_ini, 0, dumPfp->alpha); // alpha
-  gsl_vector_set(pdfp_ini, 1, dumPfp->beta);  // beta
-  
-  // // Set the remainder of fit params
-  // for ( int s = 2; s < pdfp_ini->size; s++ )
-  //   {
-  //     gsl_vector_set(pdfpSteps, s, 0.05);
-  //     gsl_vector_set(pdfp_ini, s, 0.0);
-  //   }
 
 
   /*
     INITIALIZE THE SOLVER HERE, SO REPEATED CALLS TO SET, RETURN A NEW NMRAND2 SOLVER
-  */
-  /*
+
     Initialize a multidimensional minimizer without relying on derivatives of function
   */
   // Select minimization type
@@ -434,6 +404,16 @@ int main( int argc, char *argv[] )
   */
   for ( int itJ = jkStart; itJ < jkEnd; itJ++ )
     {
+
+      /*
+	Set up an instance of pdfFitParams_t struct for fit param printing
+	pass dummy LT, AZ, T4 vectors for pmap member initialization
+      */
+      pdfFitParams_t *dumPfp = new pdfFitParams_t(pdfType, 0.05,2.0,dumLTIni,dumAZIni,dumT4Ini);
+      gsl_vector_set(pdfp_ini, 0, dumPfp->alpha); // alpha
+      gsl_vector_set(pdfp_ini, 1, dumPfp->beta);  // beta
+
+
       // Time the duration of this fit
       auto jackTimeStart = std::chrono::steady_clock::now();
 
@@ -443,7 +423,7 @@ int main( int argc, char *argv[] )
       */
       std::vector<std::pair<int, double> > nuzJK(distribution.data.invCovR->size1);
       gsl_vector *dataVecJK = gsl_vector_alloc(distribution.data.invCovR->size1);
-      // Instantiate a reducedPITD object for this jackknife
+      // Instantiate a reducedPITD object for this jackknife (only 1cfg)
       reducedPITD thisJack(1, zmin, zmax, pmin, pmax);
       thisJack.data.invCovR = distribution.data.invCovR;
       thisJack.data.invCovI = distribution.data.invCovI;
@@ -491,7 +471,7 @@ int main( int argc, char *argv[] )
       // Define the gsl_multimin_function
       gsl_multimin_function Chi2;
       // Dimension of the system
-      Chi2.n = pdfp_ini->size;
+      Chi2.n = pdfp_ini->size;   // (dim = 2, as only alpha/beta are treated w/ nelder-mead)
       // Function to minimize
       Chi2.f = &chi2Func;
       Chi2.params = &thisJack;

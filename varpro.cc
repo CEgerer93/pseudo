@@ -30,7 +30,7 @@ namespace VarPro
 	      {
 		if ( pdfType == 0 )
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
-				 pitd_texp_sigma_n(l, 85, a, b, v->second, v->first) );
+				 pitd_texp_sigma_n(l, 75, a, b, v->second, v->first) );
 		if ( pdfType == 1 )
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
 				 pitd_texp_eta_n(l, 75, a, b, v->second, v->first) );
@@ -38,30 +38,30 @@ namespace VarPro
 	    /*
 	      (a/z)^2 corrections : \sum from l = 1 of pitd_texp_<sigma,eta>_n_treelevel
 	                            So l passed to pitd_texp_<sigma,eta>_n_treelevel
-				    needs to be shifted to l-2
+				    needs to be shifted to l-(numLT-1)
 	    */
 	    else if ( l >= numLT && l < numLT + numAZ )
 	      {
 		if ( pdfType == 0 )
-		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
-				 pow((1.0/v->first),2)*pitd_texp_sigma_n_treelevel(l-2, 85, a, b, v->second) );
+		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),pow((1.0/v->first),2)*
+				 pitd_texp_sigma_n_treelevel(l-(numLT-1), 75, a, b, v->second) );
 		if ( pdfType == 1 )
-		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
-				 pow((1.0/v->first),1)*pitd_texp_eta_n_treelevel(l-2, 75, a, b, v->second) );
+		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),pow((1.0/v->first),1)*
+				 pitd_texp_eta_n_treelevel(l-(numLT-1), 75, a, b, v->second) );
 	      }
 	    /*
 	      (z*Lambda_qcd)^2 corrections : \sum from l = 1 of pitd_texp_<sigma,eta>_n_treelevel
 	                                     So l passed to pitd_texp_<sigma,eta>_n_treelevel
-					     needs to be shifted to l-5
+					     needs to be shifted to l-(numLT+numAZ-1)
 	    */
 	    else if ( l >= numLT + numAZ )
 	      {
 		if ( pdfType == 0 )
-		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
-				 pow(v->first*LAMBDA,2)*pitd_texp_sigma_n_treelevel(l-5, 85, a, b, v->second) );
+		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),pow(v->first*LAMBDA,2)*
+				 pitd_texp_sigma_n_treelevel(l-(numLT+numAZ-1), 75, a, b, v->second) );
 		if ( pdfType == 1 )
-		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
-				 pow(v->first*LAMBDA,1)*pitd_texp_eta_n_treelevel(l-5, 75, a, b, v->second) );
+		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),pow(v->first*LAMBDA,2)*
+				 pitd_texp_eta_n_treelevel(l-(numLT+numAZ-1), 75, a, b, v->second) );
 	      }
 	  } // nuz
       } // l
@@ -88,27 +88,13 @@ namespace VarPro
 	gsl_blas_ddot(data,rMult,&sum);
 
 
-	// // Perform (covinv) x (data)
-	// gsl_blas_dgemv(CblasNoTrans,1.0,invCov,data,0.0,rMult);
-	// // Perform (basis)^T \cdot (rMult)
-	// gsl_blas_ddot(&slice.vector,rMult,&sum2);
-
-
 	// Collect the contributions from any priors
 	if ( l < numLT )
-	  {
-	    priorsSum += fitParams.prior[l]/pow(fitParams.width[l],2);
-	    // std::cout << fitParams.prior[l]/pow(fitParams.width[l],2) << std::endl;
-	  }
+	  priorsSum += fitParams.prior[l]/pow(fitParams.width[l],2);
 	else if ( l >= numLT && l < numLT + numAZ )
-	  {
-	    // std::cout << fitParams.az_prior[l-numLT]/pow(fitParams.az_width[l-numLT],2) << std::endl;
-	    priorsSum += fitParams.az_prior[l-numLT]/pow(fitParams.az_width[l-numLT],2);
-	  }
+	  priorsSum += fitParams.az_prior[l-numLT]/pow(fitParams.az_width[l-numLT],2);
 	else if ( l >= numLT + numAZ )
-	  {
-	    priorsSum += fitParams.t4_prior[l-numLT-numAZ]/pow(fitParams.t4_width[l-numLT-numAZ],2);
-	  }
+	  priorsSum += fitParams.t4_prior[l-numLT-numAZ]/pow(fitParams.t4_width[l-numLT-numAZ],2);
 
 	// Now set the l^th entry of Y
 	gsl_vector_set(Y, l, sum+priorsSum);
@@ -169,12 +155,4 @@ namespace VarPro
     //   std::cout << "---> In computing Phi^-1, removed " << catchSVs << " singular values" << std::endl;
     invPhi = dumMap.begin()->second;
   }
-
-  // /*
-  //   Return the solution of varpro
-  // */
-  // void varPro::getSoln()
-  // {
-  //   gsl_blas_dgemv(CblasNoTrans,1.0,VP.invPhi,VP.Y,0.0,soln);
-  // }
 }
