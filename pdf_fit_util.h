@@ -46,13 +46,13 @@ struct pdfFitParams_t
 
 
   // Let's try some Bayesian prior stuff
-  std::vector<double> prior {0.0, 0.0, 0.0, 0.0, 0.0};
-  std::vector<double> width {1.1, 0.5, 0.25, 0.25, 0.25};
+  std::vector<double> prior {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  std::vector<double> width {1.1, 0.5, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25};
 
-  std::vector<double> az_prior {0.0, 0.0, 0.0, 0.0, 0.0};
-  std::vector<double> az_width {0.25, 0.25, 0.25, 0.25, 0.25};
-  std::vector<double> t4_prior {0.0, 0.0, 0.0, 0.0, 0.0};
-  std::vector<double> t4_width {0.25, 0.25, 0.25, 0.25, 0.25};
+  std::vector<double> az_prior {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  std::vector<double> az_width {0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25};
+  std::vector<double> t4_prior {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  std::vector<double> t4_width {0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25};
   
 
   std::map<int, std::string> pmap; // map to print fit parameter string and values during fit

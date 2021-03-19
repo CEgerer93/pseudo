@@ -61,7 +61,7 @@ int nParams, nParamsLT, nParamsAZ, nParamsT4, pdfType; // Determine pdf to fit &
 
 // Define non-linear priors and prior widths
 std::vector<double> nlPriors {0.0, 3.0}; // {alpha,beta}
-std::vector<double> nlWidths {0.25, 0.25};
+std::vector<double> nlWidths {0.25, 0.5}; // 0.25, 0.25
 
 /*
   MULTIDIMENSIONAL MINIMIZATION - CHI2 
@@ -305,22 +305,16 @@ int main( int argc, char *argv[] )
   // Set an output file for jackknife fit results
 #ifdef UNCORRELATED
 #warning "   Performing an uncorrelated fit"
-#ifdef CONVOLC
   std::string output = "b_b0xDA__J0_A1pP."+matelemType+"_jack"+std::to_string(jkStart)+
-    "-"+std::to_string(jkEnd)+"."+std::to_string(nParams)+"-parameter.convolC.uncorrelated";
-#else
-  std::string output = "b_b0xDA__J0_A1pP."+matelemType+"_jack"+std::to_string(jkStart)+
-    "-"+std::to_string(jkEnd)+"."+std::to_string(nParams)+"-parameter.convolK.uncorrelated";
-#endif
+    "-"+std::to_string(jkEnd)+"."+std::to_string(nParams)+"-parameter_"+
+    std::to_string(nParamsLT)+"lt_"+std::to_string(nParamsAZ)+"az_"+
+    std::to_string(nParamsT4)+"t4.convolJ.uncorrelated";
 #else
 #warning "   Performing a correlated fit"
-#ifdef CONVOLC
   std::string output = "b_b0xDA__J0_A1pP."+matelemType+"_jack"+std::to_string(jkStart)+
-    "-"+std::to_string(jkEnd)+"."+std::to_string(nParams)+"-parameter.convolC.correlated";
-#else
-  std::string output = "b_b0xDA__J0_A1pP."+matelemType+"_jack"+std::to_string(jkStart)+
-    "-"+std::to_string(jkEnd)+"."+std::to_string(nParams)+"-parameter.convolK.correlated";
-#endif
+    "-"+std::to_string(jkEnd)+"."+std::to_string(nParams)+"-parameter_"+
+    std::to_string(nParamsLT)+"lt_"+std::to_string(nParamsAZ)+"az_"+
+    std::to_string(nParamsT4)+"t4.convolK.correlated";
 #endif
   output += ".pmin"+std::to_string(pmin)+"_pmax"+std::to_string(pmax)+
     "_zmin"+std::to_string(zmin)+"_zmax"+std::to_string(zmax)+".txt";
