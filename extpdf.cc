@@ -63,6 +63,25 @@ int nParams, nParamsLT, nParamsAZ, nParamsT4, pdfType; // Determine pdf to fit &
 std::vector<double> nlPriors {0.0, 3.0}; // {alpha,beta}
 std::vector<double> nlWidths {0.25, 0.5}; // 0.25, 0.25
 
+
+// std::vector<double> nl_mu {0.0, 3.0};
+// std::vector<double> nl_sig {0.25, 0.5};
+// std::vector<double> nlPriors(2);
+// std::vector<double> nlWidths(2);
+
+
+// nlPriors[0] = log( pow( nl_mu[0], 2) / sqrt( pow(nl_mu[0], 2) + pow(nl_sig[0], 2) ) );
+// nlPriors[1] = log( pow( nl_mu[1], 2) / sqrt( pow(nl_mu[1], 2) + pow(nl_sig[1], 2) ) );
+// nlWidths[0] = log( 1 + ( pow(nl_sig[0], 2) / pow(nl_mu[0], 2) ) );
+// nlWidths[1] = log( 1 + ( pow(nl_sig[1], 2) / pow(nl_mu[1], 2) ) );
+
+
+// std::vector<double> nlPriors { log( pow( 0.1, 2) / sqrt( pow(0.1, 2) + pow(0.25, 2) ) ), log( pow( 3, 2) / sqrt( pow(3, 2) + pow(0.5, 2) ) )};
+// std::vector<double> nlWidths { log( 1 + ( pow(0.25, 2) / pow(0.1, 2) ) ), log( 1 + ( pow(0.5, 2) / pow(3.0, 2) ))};
+
+
+
+
 /*
   MULTIDIMENSIONAL MINIMIZATION - CHI2 
   MINIMIZE LEAST-SQUARES BETWEEN DATA AND NUMERICALLY INTEGRATED MATCHING KERNEL AND pITD
@@ -224,7 +243,7 @@ double chi2Func(const gsl_vector * x, void *data)
 #ifdef CONSTRAINED
   // Log-normal on alpha, beta
   chi2 += (pow( (log(dumA + 1) - nlPriors[0]), 2))/pow(nlWidths[0],2)
-    + (pow( (log(dumB + 1) - nlPriors[1]), 2))/pow(nlWidths[1],2);
+    + (pow( (log(dumB + 0) - nlPriors[1]), 2))/pow(nlWidths[1],2);
   // A const piece remains from VarPro w/ priors
   for ( int c = 0; c < VP.numCorrections; c++ )
     {

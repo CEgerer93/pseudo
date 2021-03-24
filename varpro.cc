@@ -36,7 +36,8 @@ namespace VarPro
 				 pitd_texp_eta_n(l, 75, a, b, v->second, v->first) );
 	      }
 	    /*
-	      (a/z)^2 corrections : \sum from l = 1 of pitd_texp_<sigma,eta>_n_treelevel
+	      (a/z)^2 corrections : \sum from l = 1 of pitd_texp_sigma_n_treelevel
+	                            \sum from l = 0 of pitd_texp_eta_n_treelevel
 	                            So l passed to pitd_texp_<sigma,eta>_n_treelevel
 				    needs to be shifted to l-(numLT-1)
 	    */
@@ -47,10 +48,11 @@ namespace VarPro
 				 pitd_texp_sigma_n_treelevel(l-(numLT-1), 75, a, b, v->second) );
 		if ( pdfType == 1 )
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),pow((1.0/v->first),1)*
-				 pitd_texp_eta_n_treelevel(l-(numLT-1), 75, a, b, v->second) );
+				 pitd_texp_eta_n_treelevel(l-numLT, 75, a, b, v->second) );
 	      }
 	    /*
-	      (z*Lambda_qcd)^2 corrections : \sum from l = 1 of pitd_texp_<sigma,eta>_n_treelevel
+	      (z*Lambda_qcd)^2 corrections : \sum from l = 1 of pitd_texp_sigma_n_treelevel
+	                                     \sum from l = 0 of pitd_texp_eta_n_treelevel
 	                                     So l passed to pitd_texp_<sigma,eta>_n_treelevel
 					     needs to be shifted to l-(numLT+numAZ-1)
 	    */
@@ -61,7 +63,7 @@ namespace VarPro
 				 pitd_texp_sigma_n_treelevel(l-(numLT+numAZ-1), 75, a, b, v->second) );
 		if ( pdfType == 1 )
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),pow(v->first*LAMBDA,2)*
-				 pitd_texp_eta_n_treelevel(l-(numLT+numAZ-1), 75, a, b, v->second) );
+				 pitd_texp_eta_n_treelevel(l-(numLT+numAZ), 75, a, b, v->second) );
 	      }
 	  } // nuz
       } // l
