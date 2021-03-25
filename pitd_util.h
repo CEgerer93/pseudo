@@ -9,6 +9,7 @@
 #include<map>
 #include<iostream>
 #include<iomanip>
+#include<cmath>
 #include<complex>
 
 #include<gsl/gsl_matrix.h>
