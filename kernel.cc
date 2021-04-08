@@ -16,6 +16,7 @@
 #include "acb.h"
 #include "acb_hypgeom.h"
 
+#include "pitd_util.h"
 
 namespace PITD
 {
@@ -190,80 +191,80 @@ namespace PITD
     return gsl_sf_beta(v,w);
   }
 
-  /*
-    Jacobi coefficients
-    w_{n,j}^{(a,b)} = (-1)^j/n! * (n_C_j) * { Gamma(a+n+1)*Gamma(a+b+n+j+1) }/{ Gamma(a+j+1)*Gamma(a+b+n+1) }
-  */
-  double coeffJacobi(int n, int j, double a, double b)
-  {
-    return (pow(-1,j)/gsl_sf_fact(n))*gsl_sf_choose(n,j)
-      *( (gsl_sf_gamma(a+n+1)*gsl_sf_gamma(a+b+n+j+1)) / (gsl_sf_gamma(a+j+1)*gsl_sf_gamma(a+b+n+1)) );
-  }
+  // /*
+  //   Jacobi coefficients
+  //   w_{n,j}^{(a,b)} = (-1)^j/n! * (n_C_j) * { Gamma(a+n+1)*Gamma(a+b+n+j+1) }/{ Gamma(a+j+1)*Gamma(a+b+n+1) }
+  // */
+  // double coeffJacobi(int n, int j, double a, double b)
+  // {
+  //   return (pow(-1,j)/gsl_sf_fact(n))*gsl_sf_choose(n,j)
+  //     *( (gsl_sf_gamma(a+n+1)*gsl_sf_gamma(a+b+n+j+1)) / (gsl_sf_gamma(a+j+1)*gsl_sf_gamma(a+b+n+1)) );
+  // }
 
-  /*
-    Jacobi Polynomial:  \omega_n^{(a,b)}(x) = \sum_{j=0}^n coeffJacobi(n,j,a,b)*x^j
-  */
-  double jacobi(int n, double a, double b, double x)
-  {
-    double sum(0.0);
-    for ( int j = 0; j <= n; j++ )
-      sum += coeffJacobi(n,j,a,b)*pow(x,j);
-    return sum;
-  }
+  // /*
+  //   Jacobi Polynomial:  \omega_n^{(a,b)}(x) = \sum_{j=0}^n coeffJacobi(n,j,a,b)*x^j
+  // */
+  // double jacobi(int n, double a, double b, double x)
+  // {
+  //   double sum(0.0);
+  //   for ( int j = 0; j <= n; j++ )
+  //     sum += coeffJacobi(n,j,a,b)*pow(x,j);
+  //   return sum;
+  // }
 
 
-  /*
-    Support for Taylor expansion of DGLAP Kernel
-  */
-  double texp_gn(int n)
-  {
-    double sum(0.0);
-    // Sum part of what would be a divergent p-series
-    for ( int k = 1; k <= n; k++ )
-      sum += 1.0/k;
-    sum*=2;
+  // /*
+  //   Support for Taylor expansion of DGLAP Kernel
+  // */
+  // double texp_gn(int n)
+  // {
+  //   double sum(0.0);
+  //   // Sum part of what would be a divergent p-series
+  //   for ( int k = 1; k <= n; k++ )
+  //     sum += 1.0/k;
+  //   sum*=2;
 
-    return 3/2 - 1/(1+n) - 1/(2+n) - sum;
-  }
+  //   return 3/2 - 1/(1+n) - 1/(2+n) - sum;
+  // }
 
-  /*
-    Support for Taylor expansion of Lattice-MSbar matching kernel
-  */
-  double texp_dn(int n)
-  {
-    double sum(0.0);
-    // Sum part of what would be a divergent p-series
-    for ( int k = 1; k <= n; k++ )
-      sum += 1.0/k;
-    sum = pow(sum, 2);
+  // /*
+  //   Support for Taylor expansion of Lattice-MSbar matching kernel
+  // */
+  // double texp_dn(int n)
+  // {
+  //   double sum(0.0);
+  //   // Sum part of what would be a divergent p-series
+  //   for ( int k = 1; k <= n; k++ )
+  //     sum += 1.0/k;
+  //   sum = pow(sum, 2);
 
-    return 2*( sum + (2*pow(M_PI,2)+n*(n+3)*(3+pow(M_PI,2)))/(6*(n+1)*(n+2)) - gsl_sf_psi_1_int(n+1) );
-  }
+  //   return 2*( sum + (2*pow(M_PI,2)+n*(n+3)*(3+pow(M_PI,2)))/(6*(n+1)*(n+2)) - gsl_sf_psi_1_int(n+1) );
+  // }
 
-  /*
-    Support for Taylor expansion of NLO pITD->PDF Matching Kernel
-  */
-  double texp_cn(int n, int z)
-  {
-    return 1-((alphaS*Cf)/(2*M_PI))*( texp_gn(n)*log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) ) + texp_dn(n) );
-  }
+  // /*
+  //   Support for Taylor expansion of NLO pITD->PDF Matching Kernel
+  // */
+  // double texp_cn(int n, int z)
+  // {
+  //   return 1-((alphaS*Cf)/(2*M_PI))*( texp_gn(n)*log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) ) + texp_dn(n) );
+  // }
 
-  /*
-    Support for Taylor expansion of (pITD->PDF Kernel)*(Jacobi PDF Parametrization)
-  */
-  double pitd_texp_sigma_n(int n, int trunc, double a, double b, double nu)
-  {
-    double sum(0.0);
-    for ( int j = 0; j <= n; j++ )
-      {
-	for ( int k = 0; k <= trunc; k++ )
-	  {
-	    sum += (pow(-1,k)/gsl_sf_fact(2*k))*texp_cn(2*k,z)*
-	      coeffJacobi(n,j,a,b)*betaFn(a+2*k+j+1,b+1)*pow(nu,2*k);
-	  }
-      }
-    return sum;
-  }
+  // /*
+  //   Support for Taylor expansion of (pITD->PDF Kernel)*(Jacobi PDF Parametrization)
+  // */
+  // double pitd_texp_sigma_n(int n, int trunc, double a, double b, double nu)
+  // {
+  //   double sum(0.0);
+  //   for ( int j = 0; j <= n; j++ )
+  //     {
+  // 	for ( int k = 0; k <= trunc; k++ )
+  // 	  {
+  // 	    sum += (pow(-1,k)/gsl_sf_fact(2*k))*texp_cn(2*k,z)*
+  // 	      coeffJacobi(n,j,a,b)*betaFn(a+2*k+j+1,b+1)*pow(nu,2*k);
+  // 	  }
+  //     }
+  //   return sum;
+  // }
 
 
 
