@@ -58,6 +58,8 @@ using namespace PITD;
 int zmin,zmax,pmin,pmax;
 int nParams, pdfType; // Determine pdf to fit & # params
 
+int oneParam_BETA; // for check of dglap, set beta value for 1-param fit
+
 /*
   Parameters describing pheno PDF fit
 */
@@ -74,7 +76,7 @@ struct pdfFitParams_t
   double pdfEval(double x)
   {
 #ifndef JACOBI
-    if ( nParams == 2 )
+    if ( nParams == 1 || nParams == 2 )
       return norm * pow(x,alpha) * pow(1-x,beta);
     if ( nParams == 3 )
       return norm * pow(x,alpha) * pow(1-x,beta) * (1 + delta*x);
@@ -104,17 +106,17 @@ struct pdfFitParams_t
 
   // Default/Parametrized constructor w/ initializer lists
   // pdfFitParams_t() : norm(1.0), alpha(-0.3), beta(2.5), gamma(0.0), delta(0.0) {}
-  pdfFitParams_t(bool _floatNorm = false, double _a = -0.3, double _b = 2.5, double _g = 0.0,
+  pdfFitParams_t(bool _floatNorm = false, double _a = -0.3, double _b = 3.0, double _g = 0.0,
 		 double _d = 0.0) : alpha(_a), beta(_b), gamma(_g), delta(_d)
   {
     if ( !_floatNorm )
       {
 	norm = 1.0/( betaFn(alpha+1,beta+1)+gamma*betaFn(alpha+1.5,beta+1)+delta*betaFn(alpha+2,beta+1) );
-	pmap[0] = "alpha (qv)";	pmap[1] = "beta (qv)";
+	pmap[0] = "alpha (qv)";	// pmap[1] = "beta (qv)";
       }
     if ( _floatNorm )
       {
-	norm = 1.0; pmap[0] = "Norm (q+)"; pmap[1] = "alpha (q+)"; pmap[2] = "beta (q+)";
+	norm = 1.0; pmap[0] = "Norm (q+)"; pmap[1] = "alpha (q+)"; // pmap[2] = "beta (q+)";
       }
   }
 };
@@ -153,7 +155,14 @@ double NLOKernelPhenoPDFConvolution(double x, void * p)
   */
 #ifdef CONVOLK
 #warning "Kernel will be NLO matching kernel  --  assuming pITD data will be fit"
+#ifndef DGLAPCHECK
   return NLOKernel(x,cp->nu,cp->z)*cp->p.pdfEval(x);
+#else
+  if ( pdfType == 0 )
+    return cos(x*cp->nu)*cp->p.pdfEval(x);
+  if ( pdfType == 1 )
+    return sin(x*cp->nu)*cp->p.pdfEval(x);
+#endif
 #endif
 
 #ifdef CONVOLC
@@ -207,7 +216,11 @@ double convolution(pdfFitParams_t& params, double nu, int z)
     Pass success boolean as an int
   */ 
 #ifdef CONVOLK // need to exclude 0 for kernel convolution to even proceed
+#ifndef DGLAPCHECK
   int success = gsl_integration_cquad(&F,0.00000000001,1.0,epsabs,epsrel,w,&result,&abserr,&nevals);
+#else
+  int success = gsl_integration_cquad(&F,0.0,1.0,epsabs,epsrel,w,&result,&abserr,&nevals);
+#endif
 #elif CONVOLC
   int success = gsl_integration_cquad(&F,0.0,1.0,epsabs,epsrel,w,&result,&abserr,&nevals);
 #endif
@@ -242,16 +255,21 @@ double chi2Func(const gsl_vector * x, void *data)
     case 0: // QVAL
       dumNorm = false;
       dumA = gsl_vector_get(x, 0); // alpha
-      dumB  = gsl_vector_get(x, 1); // beta
+      dumB = oneParam_BETA;
 
       // Switch on higher order jam PDFs
       switch(nParams)
         {
+	case 2:
+	  dumB = gsl_vector_get(x, 1); // beta
+	  break;
         case 3:
+	  dumB = gsl_vector_get(x, 1); // beta
 	  dumG = 0.0;
           dumD = gsl_vector_get(x, 2); // delta
 	  break;
         case 4:
+	  dumB = gsl_vector_get(x, 1); // beta
           dumG = gsl_vector_get(x, 2); // gamma
           dumD = gsl_vector_get(x, 3); // delta
 	  break;
@@ -261,16 +279,21 @@ double chi2Func(const gsl_vector * x, void *data)
     case 1: // QPLUS
       dumNorm = true;
       dumA = gsl_vector_get(x, 1); // alpha+
-      dumB  = gsl_vector_get(x, 2); // beta+
+      dumB = oneParam_BETA;
 
       // Switch on higher order jam PDFs
       switch(nParams)
         {
+	case 2:
+	  dumB  = gsl_vector_get(x, 2); // beta+
+	  break;
         case 3:
+	  dumB  = gsl_vector_get(x, 2); // beta+
 	  dumG = 0.0;
           dumD = gsl_vector_get(x, 3); // delta+
 	  break;
         case 4:
+	  dumB  = gsl_vector_get(x, 2); // beta+
           dumG = gsl_vector_get(x, 3); // gamma+
           dumD = gsl_vector_get(x, 4); // delta+
 	  break;
@@ -403,6 +426,12 @@ int main( int argc, char *argv[] )
   ss << argv[11]; ss >> pmax;          ss.clear(); ss.str(std::string());
 
 
+  // for check of dglap, set beta value for 1-param fit
+  if ( nParams == 1 )
+    oneParam_BETA = 3.0;
+  else
+    oneParam_BETA = 0.0;
+
   
   // Append Qval or Qplus to matelemType
   if ( pdfType == 1 )
@@ -511,7 +540,7 @@ int main( int argc, char *argv[] )
   gsl_vector *pdfp_ini, *pdfpSteps;
   // pdfFitParams_t dumPfp((bool)pdfType,0.3,2,0.0,0.0); // collect the master starting values
   // These for jacobi qv
-  pdfFitParams_t dumPfp((bool)pdfType,0.1,0,2.0,1.3);
+  pdfFitParams_t dumPfp((bool)pdfType,0.1,oneParam_BETA,2.0,1.3);
 
 
   switch(pdfType)
@@ -522,18 +551,25 @@ int main( int argc, char *argv[] )
       for ( int s = 0; s < pdfp_ini->size; s++ ) { gsl_vector_set(pdfpSteps, s, 0.1); }
 
       gsl_vector_set(pdfp_ini, 0, dumPfp.alpha); // alpha
-      gsl_vector_set(pdfp_ini, 1, dumPfp.beta);  // beta
 
       // Switch on higher order jam PDFs
       switch(nParams)
 	{
+	case 2:
+	  gsl_vector_set(pdfp_ini, 1, dumPfp.beta);  // beta
+	  // dumPfp.pmap[1] = "beta (qv)";
+	  break;
 	case 3:
+	  gsl_vector_set(pdfp_ini, 1, dumPfp.beta);  // beta
 	  gsl_vector_set(pdfp_ini, 2, dumPfp.delta); // delta
+	  // dumPfp.pmap[1] = "beta (qv)";
 	  dumPfp.pmap[2] = "delta (qv)";
 	  break;
 	case 4:
+	  gsl_vector_set(pdfp_ini, 1, dumPfp.beta);  // beta
 	  gsl_vector_set(pdfp_ini, 3, dumPfp.delta); // delta
 	  gsl_vector_set(pdfp_ini, 2, dumPfp.gamma); // gamma
+	  // dumPfp.pmap[1] = "beta (qv)";
 	  dumPfp.pmap[3] = "delta (qv)";
 	  dumPfp.pmap[2] = "gamma (qv)";
 	  break;
@@ -548,18 +584,25 @@ int main( int argc, char *argv[] )
 
       gsl_vector_set(pdfp_ini, 0, dumPfp.norm);  // N+
       gsl_vector_set(pdfp_ini, 1, dumPfp.alpha); // alpha+
-      gsl_vector_set(pdfp_ini, 2, dumPfp.beta);  // beta+
 
       // Switch on higher order jam PDFs
       switch(nParams)
 	{
+	case 2:
+	  gsl_vector_set(pdfp_ini, 2, dumPfp.beta);  // beta+
+ 	  // dumPfp.pmap[2] = "beta (q+)";
+	  break;
 	case 3:
+	  gsl_vector_set(pdfp_ini, 2, dumPfp.beta);  // beta+
 	  gsl_vector_set(pdfp_ini, 3, dumPfp.delta); // delta+
+	  // dumPfp.pmap[2] = "beta (q+)";
 	  dumPfp.pmap[3] = "delta (q+)";
 	  break;
 	case 4:
+	  gsl_vector_set(pdfp_ini, 2, dumPfp.beta);  // beta+
 	  gsl_vector_set(pdfp_ini, 4, dumPfp.delta); // delta+
 	  gsl_vector_set(pdfp_ini, 3, dumPfp.gamma); // gamma+
+	  // dumPfp.pmap[2] = "beta (q+)";
 	  dumPfp.pmap[4] = "delta (q+)";
 	  dumPfp.pmap[3] = "gamma (q+)";
 	  break;
@@ -706,6 +749,9 @@ int main( int argc, char *argv[] )
 	case 0:
 	  switch (nParams)
 	    {
+	    case 1:
+	      best = new pdfFitParams_t(false, gsl_vector_get(bestFitParams, 0),
+					oneParam_BETA); break;
 	    case 2:
 	      best = new pdfFitParams_t(false, gsl_vector_get(bestFitParams, 0),
 					gsl_vector_get(bestFitParams, 1)); break;
@@ -722,6 +768,9 @@ int main( int argc, char *argv[] )
 	case 1:
 	  switch(nParams)
 	    {
+	    case 1:
+	      best = new pdfFitParams_t(true, gsl_vector_get(bestFitParams, 1),
+					oneParam_BETA); break;
 	    case 2:
 	      best = new pdfFitParams_t(true, gsl_vector_get(bestFitParams, 1),
 					gsl_vector_get(bestFitParams, 2)); break;
@@ -756,7 +805,8 @@ int main( int argc, char *argv[] )
     } // End loop over jackknife samples
 
 
-#ifdef CONVOLK
+#if 0
+// #ifdef CONVOLK
   // Write the pitd->PDF fit results for later plotting
   reducedPITD pitdPDFFit(gauge_configs);
   for ( int z = zmin; z <= zmax; z++ )
