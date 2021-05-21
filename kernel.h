@@ -16,6 +16,11 @@ namespace PITD
     double real, imag;
   };
 
+  /*
+    Evaluate a 2F3 generalized hypergeometric function for convolution of (rough) pseudo-PDF fits w/ DGLAP/matching kernels
+  */
+  pfq_t ppdfEval(double a, double b, double val);
+
   
   /*
     Evaluate the generalized hypergeometric function pFq

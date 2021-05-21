@@ -28,7 +28,99 @@ namespace PITD
     double real, imag;
   };
 
+  /*
+    Evaluate a 2F3 generalized hypergeometric function for convolution of (rough) pseudo-PDF fits w/ DGLAP/matching kernels
+  */
+  pfq_t ppdfEval(double a, double b, double val)
+  {
+    // Will compute a 2F3 order generalized hypergeometric function
+    slong p = 2; slong q = 3;
+    // Precision of result
+    slong prec = 64; // double precision
+
+    // Convert the val reference into a acb_t struct
+    arb_t zRe; arb_init(zRe); arb_set_d(zRe,val);
+    arb_t zIm; arb_init(zIm); arb_set_d(zIm,0.0);
+    // Pack real/imag components into a complex struct
+    acb_t z; acb_init(z);
+    acb_set_arb_arb(z,zRe,zIm);
+    // Free memory for the components
+    arb_clear(zRe); arb_clear(zIm);
+
+    // Construct vectors for the numerator/denominators of pFq
+    arb_t aRe, aIm;
+    arb_init(aRe); arb_init(aIm);
+    arb_set_d(aRe,0.5); arb_set_d(aIm,0);
+    arb_t bRe, bIm;
+    arb_init(bRe); arb_init(bIm);
+    arb_set_d(bRe,0.5); arb_set_d(bIm,0);
+
+    // acb_t az;  acb_init(az); acb_set_arb_arb(az,aRe,aIm);
+    // acb_t bz;  acb_init(bz); acb_set_arb_arb(bz,bRe,bIm);
+    acb_struct * aZ = _acb_vec_init(p);
+    acb_struct * bZ = _acb_vec_init(q);
   
+    // Now set each component of numerator/denominator vectors
+    for ( slong i = 0; i < p; i++ )
+      {
+	arb_t rescaleRe; arb_init(rescaleRe);
+	arb_set_d(rescaleRe,0.5*(a+i+1));
+	acb_t az;  acb_init(az); acb_set_arb_arb(az,rescaleRe,aIm);
+	acb_set(aZ+i,az);
+	acb_clear(az);
+      }
+    
+    slong j = 0;
+
+    arb_t rescaleRe; arb_init(rescaleRe);
+
+    acb_t bz;  acb_init(bz); acb_set_arb_arb(bz,bRe,bIm);
+    acb_set(bZ+j, bz); j++;
+    arb_set_d(rescaleRe,1.0+(a+b)/2);
+    acb_set_arb_arb(bz,rescaleRe,bIm);
+    acb_set(bZ+j, bz); j++;
+    arb_set_d(rescaleRe,1.5+(a+b)/2);
+    acb_set_arb_arb(bz,rescaleRe,bIm);
+    acb_set(bZ+j, bz);
+
+
+    // Free some memory
+    arb_clear(aRe); arb_clear(aIm);
+    arb_clear(bRe); arb_clear(bIm);
+
+    acb_t res; acb_init(res);
+
+    // THE CALL
+    acb_hypgeom_pfq(res, aZ, p, bZ, q, z, 0, prec);
+
+    arb_t hypImag; arb_init(hypImag);
+    acb_get_imag(hypImag,res);
+    arb_t hypReal; arb_init(hypReal);
+    acb_get_real(hypReal,res);
+    char * hypRealChar; char * hypImagChar;
+    hypRealChar = arb_get_str(hypReal,prec,ARB_STR_NO_RADIUS);
+    hypImagChar = arb_get_str(hypImag,prec,ARB_STR_NO_RADIUS);
+
+    // Free more memory
+    acb_clear(z);
+    // acb_clear(az);
+    acb_clear(bz);
+    acb_clear(res);
+    arb_clear(hypImag);
+    arb_clear(hypReal);
+    _acb_vec_clear(aZ,p);
+    _acb_vec_clear(bZ,q);
+    
+    pfq_t resHypGeom;
+    resHypGeom.real = atof(hypRealChar);
+    resHypGeom.imag = atof(hypImagChar);
+    
+    flint_cleanup(); // free associated flint memory
+    
+    return resHypGeom;
+  }
+
+
   /*
     Evaluate the generalized hypergeometric function pFq
   */

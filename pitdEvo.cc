@@ -25,6 +25,7 @@
 
 // #include "pitd_util_NEW_TEST.h"
 #include "pitd_util.h"
+#include "kernel.h"
 
 using namespace PITD;
 
@@ -284,6 +285,10 @@ void rpitdWrite(std::ofstream &o, reducedPITD &r)
 
 int main( int argc, char *argv[] )
 {
+
+  pfq_t dum = ppdfEval(0.125,3.0,-0.25);
+  std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
+  exit(8);
 
   if ( argc != 9 )
     {

@@ -557,19 +557,19 @@ int main( int argc, char *argv[] )
 	{
 	case 2:
 	  gsl_vector_set(pdfp_ini, 1, dumPfp.beta);  // beta
-	  // dumPfp.pmap[1] = "beta (qv)";
+	  dumPfp.pmap[1] = "beta (qv)";
 	  break;
 	case 3:
 	  gsl_vector_set(pdfp_ini, 1, dumPfp.beta);  // beta
 	  gsl_vector_set(pdfp_ini, 2, dumPfp.delta); // delta
-	  // dumPfp.pmap[1] = "beta (qv)";
+	  dumPfp.pmap[1] = "beta (qv)";
 	  dumPfp.pmap[2] = "delta (qv)";
 	  break;
 	case 4:
 	  gsl_vector_set(pdfp_ini, 1, dumPfp.beta);  // beta
 	  gsl_vector_set(pdfp_ini, 3, dumPfp.delta); // delta
 	  gsl_vector_set(pdfp_ini, 2, dumPfp.gamma); // gamma
-	  // dumPfp.pmap[1] = "beta (qv)";
+	  dumPfp.pmap[1] = "beta (qv)";
 	  dumPfp.pmap[3] = "delta (qv)";
 	  dumPfp.pmap[2] = "gamma (qv)";
 	  break;
@@ -590,19 +590,19 @@ int main( int argc, char *argv[] )
 	{
 	case 2:
 	  gsl_vector_set(pdfp_ini, 2, dumPfp.beta);  // beta+
- 	  // dumPfp.pmap[2] = "beta (q+)";
+ 	  dumPfp.pmap[2] = "beta (q+)";
 	  break;
 	case 3:
 	  gsl_vector_set(pdfp_ini, 2, dumPfp.beta);  // beta+
 	  gsl_vector_set(pdfp_ini, 3, dumPfp.delta); // delta+
-	  // dumPfp.pmap[2] = "beta (q+)";
+	  dumPfp.pmap[2] = "beta (q+)";
 	  dumPfp.pmap[3] = "delta (q+)";
 	  break;
 	case 4:
 	  gsl_vector_set(pdfp_ini, 2, dumPfp.beta);  // beta+
 	  gsl_vector_set(pdfp_ini, 4, dumPfp.delta); // delta+
 	  gsl_vector_set(pdfp_ini, 3, dumPfp.gamma); // gamma+
-	  // dumPfp.pmap[2] = "beta (q+)";
+	  dumPfp.pmap[2] = "beta (q+)";
 	  dumPfp.pmap[4] = "delta (q+)";
 	  dumPfp.pmap[3] = "gamma (q+)";
 	  break;
