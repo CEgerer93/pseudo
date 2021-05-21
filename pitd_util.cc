@@ -16,8 +16,8 @@ namespace PITD
     return c;
   }
 
-  // Easy printing of polyFitParams_t
-  std::ostream& operator<<(std::ostream& os, const polyFitParams_t& p)
+  // Easy printing of rpitdFitParams_t
+  std::ostream& operator<<(std::ostream& os, const rpitdFitParams_t& p)
   {
     os << p.a << " " << p.b << " " << p.c;
     return os;

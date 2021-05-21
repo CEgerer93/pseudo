@@ -1,6 +1,9 @@
 /*
   EVOLVE REDUCED PSEUDO IOFFE-TIME DATA AT DIFFERENT Z^2 TO A COMMON Z0^2
   WHERE Z0^2 = EXP(-2GAMMA_E-1)*MU^-2
+
+  USING EITHER A POLYNOMIAL FIT OF rPITD OR COSINE/SINE TRANSFORMS OF MODEL PSEUDO-PDFS
+
 */
 #include<iostream>
 #include<fstream>
@@ -31,95 +34,95 @@ using namespace PITD;
 
 
 
-// Structure to hold all needed parameters to perform convolution of DGLAP kernel and polyfit of reduced pITD
+// Structure to hold all needed parameters to perform convolution of DGLAP kernel and fit of reduced pITD
 struct convolParams_t
 {
   double nu, matelem;
   int z, comp;
-  polyFitParams_t p;
+  rpitdFitParams_t p;
   // Constructor with initializer list
-  convolParams_t(polyFitParams_t _p, double _n, double _m, int _z, int _c) : p{_p}, nu(_n), matelem(_m),
+  convolParams_t(rpitdFitParams_t _p, double _n, double _m, int _z, int _c) : p{_p}, nu(_n), matelem(_m),
 									     z(_z), comp(_c) {}
 };
 
-// Convolve DGLAP kernel w/ polynomial fit of pITD
-double polyFitDGLAPConvo(double u, void * p)
+// Convolve DGLAP kernel w/ reduced-pITD fit of pITD
+double rpitdFitDGLAPConvo(double u, void * p)
 {
   convolParams_t * cp = (convolParams_t *)p;
   // Friendly local copies
   double ioffeTime        = (cp->nu);
   // double matelem          = (cp->matelem);
   int z                   = (cp->z);
-  polyFitParams_t polyfit = (cp->p);
+  rpitdFitParams_t rpitdfit = (cp->p);
   int comp                = (cp->comp);
 
-  // Track the value of polynomial fits evaluated for u != 1 and u = 1
-  double polyFit, polyFitUnity;
+  // Track the value of reduced-pITD fits evaluated for u != 1 and u = 1
+  double rpitdFit, rpitdFitUnity;
 
   /*
-    Evaluate the polynomials
+    Evaluate the reduced-pITD fits
   */
   if ( comp == 0 )
     {
-      polyFit      = polyfit.func(true, u*ioffeTime); // real polynomial fit for u != 1
-      polyFitUnity = polyfit.func(true, ioffeTime);   // real polynomial fit for u = 1
+      rpitdFit      = rpitdfit.func(true, u*ioffeTime); // real reduced-pITD fit for u != 1
+      rpitdFitUnity = rpitdfit.func(true, ioffeTime);   // real reduced-pITD fit for u = 1
     }
   if ( comp == 1 )
     {
-      polyFit      = polyfit.func(false, u*ioffeTime); // imag polynomial fit for u != 1
-      polyFitUnity = polyfit.func(false, ioffeTime);   // imag polynomial fit for u = 1
+      rpitdFit      = rpitdfit.func(false, u*ioffeTime); // imag reduced-pITD fit for u != 1
+      rpitdFitUnity = rpitdfit.func(false, ioffeTime);   // imag reduced-pITD fit for u = 1
     }
 
   /*
-    Return PLUS-PRESCRIPTION of Altarelli-Parisi kernel multiplied by polynomial fit of reduced pITD
+    Return PLUS-PRESCRIPTION of Altarelli-Parisi kernel multiplied by reduced-pITD fit of reduced pITD
   */
   if ( u == 1 )
     return 0;
   else
-    return ((1+pow(u,2))/(1-u))*log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) ) *(polyFit - polyFitUnity);
+    return ((1+pow(u,2))/(1-u))*log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) ) *(rpitdFit - rpitdFitUnity);
 }
 
-// Convolve matching kernel w/ polynomial fit of pITD
-double polyFitMatchingConvo(double u, void *p)
+// Convolve matching kernel w/ reduced-pITD fit of pITD
+double rpitdFitMatchingConvo(double u, void *p)
 {
   convolParams_t * cp = (convolParams_t *)p;
   // Friendly local copies
   double ioffeTime        = (cp->nu);
   // double matelem          = (cp->matelem);
   int z                   = (cp->z);
-  polyFitParams_t polyfit = (cp->p);
+  rpitdFitParams_t rpitdfit = (cp->p);
   int comp                = (cp->comp);
 
-  // Track the value of polynomial fits evaluated for u != 1 and u = 1
-  double polyFit, polyFitUnity;
+  // Track the value of reduced-pITD fits evaluated for u != 1 and u = 1
+  double rpitdFit, rpitdFitUnity;
 
   /*
-    Evaluate the polynomials
+    Evaluate the reduced-pITD fits
   */
   if ( comp == 0 )
     {
-      polyFit      = polyfit.func(true, u*ioffeTime); // real polynomial fit for u != 1
-      polyFitUnity = polyfit.func(true, ioffeTime);   // real polynomial fit for u = 1
+      rpitdFit      = rpitdfit.func(true, u*ioffeTime); // real reduced-pITD fit for u != 1
+      rpitdFitUnity = rpitdfit.func(true, ioffeTime);   // real reduced-pITD fit for u = 1
     }
   if ( comp == 1 )
     {
-      polyFit      = polyfit.func(false, u*ioffeTime); // imag polynomial fit for u != 1
-      polyFitUnity = polyfit.func(false, ioffeTime);   // imag polynomial fit for u = 1
+      rpitdFit      = rpitdfit.func(false, u*ioffeTime); // imag reduced-pITD fit for u != 1
+      rpitdFitUnity = rpitdfit.func(false, ioffeTime);   // imag reduced-pITD fit for u = 1
     }
 
   /*
-    Return PLUS-PRESCRIPTION of MSbar matching kernel multiplied by polynomial fit of reduced pITD
+    Return PLUS-PRESCRIPTION of MSbar matching kernel multiplied by reduced-pITD fit of reduced pITD
   */
   if ( u == 1.0 )
     return 0;
   else
-    return (((4*log(1-u))/(1-u))-2*(1-u))*(polyFit - polyFitUnity);
+    return (((4*log(1-u))/(1-u))-2*(1-u))*(rpitdFit - rpitdFitUnity);
 }
 
 
 
 // Perform numerical convolution of DGLAP kernel & reduced pITD data using "+" prescription
-double convolutionDGLAP(polyFitParams_t &poly, double nu, double matelem, int z, int comp)
+double convolutionDGLAP(rpitdFitParams_t &rpitd, double nu, double matelem, int z, int comp)
 {
   /*
     Compute approximation to definite integral of form
@@ -131,12 +134,12 @@ double convolutionDGLAP(polyFitParams_t &poly, double nu, double matelem, int z,
   */
 
   // Collect and package the parameters to do the convolution
-  convolParams_t cParams(poly, nu, matelem, z, comp); 
+  convolParams_t cParams(rpitd, nu, matelem, z, comp); 
 
   
   // Define the function to integrate
   gsl_function F;
-  F.function = &polyFitDGLAPConvo;
+  F.function = &rpitdFitDGLAPConvo;
   F.params = &cParams;
   
   // hold n double precision intervals of integrand, their results and error estimates
@@ -166,7 +169,7 @@ double convolutionDGLAP(polyFitParams_t &poly, double nu, double matelem, int z,
 }
 
 // Perform numerical convolution of MSbar matching kernel & reduced pITD data using "+" prescription
-double convolutionMATCH(polyFitParams_t &poly, double nu, double matelem, int z, int comp)
+double convolutionMATCH(rpitdFitParams_t &rpitd, double nu, double matelem, int z, int comp)
 {
   /*
     Compute approximation to definite integral of form
@@ -178,12 +181,12 @@ double convolutionMATCH(polyFitParams_t &poly, double nu, double matelem, int z,
   */
 
   // Collect and package the parameters to do the convolution
-  convolParams_t cParams(poly, nu, matelem, z, comp);
+  convolParams_t cParams(rpitd, nu, matelem, z, comp);
  
 
   // Define the function to integrate
   gsl_function F;
-  F.function = &polyFitMatchingConvo;
+  F.function = &rpitdFitMatchingConvo;
   F.params = &cParams;
   
   // hold n double precision intervals of integrand, their results and error estimates
@@ -286,79 +289,100 @@ void rpitdWrite(std::ofstream &o, reducedPITD &r)
 int main( int argc, char *argv[] )
 {
 
-  pfq_t dum = ppdfEval(0.125,3.0,-0.25);
-  std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
-  exit(8);
+  // pfq_t dum = pseudoPDFSineTransform(0.125,3.0,-0.25);
+  // std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
+  // exit(8);
 
-  if ( argc != 9 )
+  if ( argc != 10 )
     {
-      std::cout << "Usage: $0 <pITD poly fit txt> <h5 file> <matelemType> <gauge_configs> <zmin> <zmax> <pmin> <pmax>" << std::endl;
+      std::cout << "Usage: $0 <polynomial(0) -or- pseudo-PDF (1) fit of rPITD> <pITD fit txt> <h5 file> <matelemType> <gauge_configs> <zmin> <zmax> <pmin> <pmax>" << std::endl;
       std::cout << "--- Note: should pass zmin = 0, pmin = 1, pmax = 6" << std::endl;
       exit(1);
     }
 
-  std::string polyFit_pITD, matelemType;
+  std::string rpitdFit, matelemType;
   int gauge_configs, zmin, zmax, pmin, pmax;
+  int type; // type of fit of reduced pITD
   
 
   std::stringstream ss;
-  ss << argv[1]; ss >> polyFit_pITD;  ss.clear(); ss.str(std::string());
-  ss << argv[3]; ss >> matelemType;   ss.clear(); ss.str(std::string());
-  ss << argv[4]; ss >> gauge_configs; ss.clear(); ss.str(std::string());
-  ss << argv[5]; ss >> zmin;          ss.clear(); ss.str(std::string());
-  ss << argv[6]; ss >> zmax;          ss.clear(); ss.str(std::string());
-  ss << argv[7]; ss >> pmin;          ss.clear(); ss.str(std::string());
-  ss << argv[8]; ss >> pmax;          ss.clear(); ss.str(std::string());
+  ss << argv[1]; ss >> type;          ss.clear(); ss.str(std::string());
+  ss << argv[2]; ss >> rpitdFit;      ss.clear(); ss.str(std::string());
+  ss << argv[4]; ss >> matelemType;   ss.clear(); ss.str(std::string());
+  ss << argv[5]; ss >> gauge_configs; ss.clear(); ss.str(std::string());
+  ss << argv[6]; ss >> zmin;          ss.clear(); ss.str(std::string());
+  ss << argv[7]; ss >> zmax;          ss.clear(); ss.str(std::string());
+  ss << argv[8]; ss >> pmin;          ss.clear(); ss.str(std::string());
+  ss << argv[9]; ss >> pmax;          ss.clear(); ss.str(std::string());
 
 
   reducedPITD rawPseudo(gauge_configs);
   /*
     ACCESS FULL DATASET OF FITTED IOFFE-TIME PSEUDO-STRUCTURE FUNCTIONS
   */
-  H5Read(argv[2], &rawPseudo, gauge_configs, zmin, zmax, pmin, pmax, "pitd");
+  H5Read(argv[3], &rawPseudo, gauge_configs, zmin, zmax, pmin, pmax, "pitd");
 
   /*
-    ACCESS THE Z^2 POLYNOMIAL FIT PARAMETERS FOR ALL JACKKNIFE SAMPLES
+    ACCESS THE Z^2 REDUCED-PITD FIT PARAMETERS FOR ALL JACKKNIFE SAMPLES
     Organized according to:
-             <z> <jack> <comp> <a> <b> <c> <chi2>
+         --> polynomial fit:   <z> <jack> <comp> <a> <b> <c> <chi2>
+	 --> pseudo-PDF fit:   <z> <comp> <chi2> <norm> <alpha> <beta> <gamma> <delta>
   */
   std::ifstream IN;
-  IN.open(polyFit_pITD);
+  IN.open(rpitdFit);
   if (IN.is_open())
     {
       while ( ! IN.eof() )
 	{
-	  // Variables to read polynomial fit
+	  // Variables to read reduced-pITD fit
 	  int z, j, comp;
-	  double a, b, c, chi2;
-	  IN >> std::setprecision(15) >> z >> j >> comp >> a >> b >> c >> chi2;
-	  // std::cout << z << " " << j << " " << comp << " " << a << " " << b << " "
-	  // 	    << c << " " << chi2 << std::endl;
-	  if ( comp == 0 )
-	    rawPseudo.data.disps[z].polyR.push_back(polyFitParams_t(a,b,c));
-	  else if ( comp == 1 )
-	    rawPseudo.data.disps[z].polyI.push_back(polyFitParams_t(a,b,c));
-	  else {
-	    std::cerr << "Unable to parse polynomial fit coefficients!" << std::endl;
-	    exit(2);
-	  }
+	  double a, b, c, chi2, norm, d;
+
+	  if ( type == 0 )
+	    {
+	      IN >> std::setprecision(15) >> z >> j >> comp >> a >> b >> c >> chi2;
+	      // std::cout << z << " " << j << " " << comp << " " << a << " " << b << " "
+	      // 	    << c << " " << chi2 << std::endl;
+	      if ( comp == 0 )
+		rawPseudo.data.disps[z].rpitdR.push_back(rpitdFitParams_t(a,b,c));
+	      else if ( comp == 1 )
+		rawPseudo.data.disps[z].rpitdI.push_back(rpitdFitParams_t(a,b,c));
+	      else {
+		std::cerr << "Unable to parse reduced-pITD fit coefficients!" << std::endl;
+		exit(2);
+	      }
+	    }
+	  else if ( type == 1 )
+	    {
+	      std::cout << "Parsing pseudo-PDF cosine/sine transforms" << std::endl;
+	      IN >> std::setprecision(15) >> z >> comp >> chi2 >> norm >> a >> b >> c >> d;
+	      if ( comp == 0 )
+		rawPseudo.data.disps[z].rpitdR.push_back(rpitdFitParams_t(a,b,c)); // c is zero (05/21/2021)
+	      else if ( comp == 1 )
+		rawPseudo.data.disps[z].rpitdI.push_back(rpitdFitParams_t(a,b,norm)); // pass norm (05/21/2021)
+	      else {
+		std::cerr << "Unable to parse reduced-pITD fit coefficients!" << std::endl;
+		exit(2);
+	      }
+	    }
 	}
     }
-  std::cout << "Done reading polynomial fit results" << std::endl;
+  std::cout << "Done reading reduced-pITD fit results" << std::endl;
   IN.close();
 
   // for ( int J = 0; J < gauge_configs; J++ ) 
   //   {
-  //     std::cout << rawPseudo.data.disps[1].polyR[J] << std::endl;
+  //     std::cout << rawPseudo.data.disps[1].rpitdR[J] << std::endl;
   //   }
   
 
   // Get the number of unique displacements from read in unevolved data
   int znum = rawPseudo.data.disps.size();
+  // std::cout << "ZNUM = " << znum << std::endl;
 
 
   /*
-    For each z^2, perform convolution of polyFit_pITD and Altarelli-Parisi kernel + Matching kernel
+    For each z^2, perform convolution of rpitdFit and Altarelli-Parisi kernel + Matching kernel
   */
   reducedPITD outRaw(gauge_configs);
   // reducedPITD evoKernel(gauge_configs);
@@ -377,8 +401,8 @@ int main( int argc, char *argv[] )
     {
 #pragma omp parallel for // num_threads(2)
       for ( int ji = 0; ji < gauge_configs; ji ++ )
-	// N.B. Would like to iterate over a std::vec of polyFitParams_t, but then stuck with same component
-      // for ( auto ji = zi->second.polyR.begin(); ji != zi->second.polyR.end(); ++ji )
+	// N.B. Would like to iterate over a std::vec of rpitdFitParams_t, but then stuck with same component
+      // for ( auto ji = zi->second.rpitdR.begin(); ji != zi->second.rpitdR.end(); ++ji )
 	{
 	  
 	  std::cout << "Evolving Z = " << zi->first << " data for JACK = " << ji << std::endl;
@@ -404,25 +428,24 @@ int main( int argc, char *argv[] )
 		  // Run over each component of pITD
 		  for ( int comp = 0; comp != 2; comp++ )
 		    {
-		      // DGLAP/MATCH: <polyFitParams for this jk> <ioffe time> <mat jk> <zsep> < real --> 0 >
+		      // DGLAP/MATCH: <rpitdFitParams for this jk> <ioffe time> <mat jk> <zsep> < real --> 0 >
 		      if ( comp == 0 )
 			{
-			  dglap.real( convolutionDGLAP(zi->second.polyR[ji], mi->second.IT,
+			  dglap.real( convolutionDGLAP(zi->second.rpitdR[ji], mi->second.IT,
 						       mi->second.mat[ji].real(), zi->first, 0) );
-			  match.real( convolutionMATCH(zi->second.polyR[ji], mi->second.IT,
-						       mi->second.mat[ji].real(), zi->first, 0) );
+			  match.real( convolutionMATCH(zi->second.rpitdR[ji], mi->second.IT,
+			  			       mi->second.mat[ji].real(), zi->first, 0) );
 			}
 		      if ( comp == 1 )
 			{
-			  dglap.imag( convolutionDGLAP(zi->second.polyI[ji], mi->second.IT,
+			  dglap.imag( convolutionDGLAP(zi->second.rpitdI[ji], mi->second.IT,
 						       mi->second.mat[ji].imag(), zi->first, 1) );
-			  match.imag( convolutionMATCH(zi->second.polyI[ji], mi->second.IT,
+			  match.imag( convolutionMATCH(zi->second.rpitdI[ji], mi->second.IT,
 						       mi->second.mat[ji].imag(), zi->first, 1) );
 			}
 		    } // comp
 		  
 		  // std::cout << "----> DGLAP = " << dglap << "          ----> MATCH = " << match << std::endl;
-		  
 		  
 		  // // Prepare the raw lattice data for reference
 		  // fill_reducedPITD(outRaw[J-jack.begin()].real,z,J->real.disps[z].ensem.IT[place],

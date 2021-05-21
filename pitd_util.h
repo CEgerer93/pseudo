@@ -12,8 +12,10 @@
 #include<complex>
 
 #include<gsl/gsl_matrix.h>
+#include <gsl/gsl_sf_gamma.h> // Evaluaton of Gamma/Beta functions
 
 #include "hdf5.h"
+#include "kernel.h" // To allow potential for 2F3 evolution w/ pseudo-PDF
 
 /*
  * Define some global constants
@@ -32,26 +34,34 @@ namespace PITD
   std::complex<double> operator*(long double ld, std::complex<double> c);
 
   /*
-    Structure to hold polynomial fit parameters, and fit function for Re/Im component of pITD
+    Structure to hold reduced-pITD fit parameters, and fit function for Re/Im component of pITD
   */
-  struct polyFitParams_t
+  struct rpitdFitParams_t
   {
     double a, b, c;
-    double func(bool reality, double ioffe) // return (Re/Im) polynomial evaluated at ioffe
+    double func(bool reality, double ioffe) // return (Re/Im) reduced-pITD evaluated at ioffe
     {
+#ifndef PSEUDOCONVOL
       if ( reality )
 	return 1.0 + a*pow(ioffe, 2) + b*pow(ioffe, 4) + c*pow(ioffe,6); // + d*pow(ioffe,8);
       if ( !reality )
 	return a*pow(ioffe, 1) + b*pow(ioffe, 3) + c*pow(ioffe, 5); // +d*pow(ioffe, 7);
+#else
+      if ( reality )
+	return pow(2,-1-a-b)*M_PI*gsl_sf_gamma(2+a+b)*pseudoPDFCosineTransform(a,b,-1.0*pow(ioffe,2)/4).real;
+      if ( !reality )
+	return pow(2,-3-a-b)*gsl_sf_gamma(2+a)*gsl_sf_gamma(1+b)*M_PI*ioffe*
+	  c*pseudoPDFSineTransform(a,b,-1.0*pow(ioffe,2)/4).real; // c should be N+ of q+ pseudo-PDF
+#endif
     }
     // Def/Param constructors, with initializer lists
-  polyFitParams_t() : a(0.0), b(0.0), c(0.0) {}
-  polyFitParams_t(double _a = 0.0, double _b = 0.0, double _c = 0.0) : a(_a), b(_b), c(_c) {}
+  rpitdFitParams_t() : a(0.0), b(0.0), c(0.0) {}
+  rpitdFitParams_t(double _a = 0.0, double _b = 0.0, double _c = 0.0) : a(_a), b(_b), c(_c) {}
   };  
   
 
-  // Easy printing of polyFitParams_t
-  std::ostream& operator<<(std::ostream& os, const polyFitParams_t& p);  
+  // Easy printing of rpitdFitParams_t
+  std::ostream& operator<<(std::ostream& os, const rpitdFitParams_t& p);  
 
 
 
@@ -67,9 +77,9 @@ namespace PITD
   struct zvals
   {
     std::map<std::string, momVals> moms;
-    // Polynomial fit results to pITD
-    std::vector<polyFitParams_t>   polyR;
-    std::vector<polyFitParams_t>   polyI;
+    // Reduced-PITD fit results to pITD
+    std::vector<rpitdFitParams_t>   rpitdR;
+    std::vector<rpitdFitParams_t>   rpitdI;
   };
 
 
@@ -116,8 +126,8 @@ namespace PITD
 
     // Print all ensemble avg data with the same z value
     void ensemPrintZ(int zf, int comp);
-    // Print the polynomial fit coefficients for a specified z
-    void polyFitPrint(int zf, int comp);
+    // Print the reduced-pITD fit coefficients for a specified z
+    void rpitdFitPrint(int zf, int comp);
 
 
     // Determine the data covariance for each zsep
@@ -152,8 +162,8 @@ namespace PITD
   /* // Print real/imag (comp) ensemble average data for provided zsep */
   /* void reducedPITD::ensemPrintZ(int zf, int c) {} */
 
-  /* // Print the real/imag (comp) polynomial fit parameters to ensemble average data for provided zsep */
-  /* void reducedPITD::polyFitPrint(int zf, int comp) {} */
+  /* // Print the real/imag (comp) reduced-pITD fit parameters to ensemble average data for provided zsep */
+  /* void reducedPITD::rpitdFitPrint(int zf, int comp) {} */
 
   
   /*

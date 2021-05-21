@@ -53,7 +53,7 @@ double chi2Func(const gsl_vector * x, void *data)
 
 
   // The current fit parameters
-  polyFitParams_t poly(gsl_vector_get(x,0), gsl_vector_get(x,1), gsl_vector_get(x,2));
+  rpitdFitParams_t poly(gsl_vector_get(x,0), gsl_vector_get(x,1), gsl_vector_get(x,2));
   // poly.d = gsl_vector_get(x,3);
 
   // Evaluate the polynomial for these fit params at each Ioffe-time

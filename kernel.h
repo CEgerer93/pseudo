@@ -17,9 +17,16 @@ namespace PITD
   };
 
   /*
-    Evaluate a 2F3 generalized hypergeometric function for convolution of (rough) pseudo-PDF fits w/ DGLAP/matching kernels
+    Evaluate a 2F3 generalized hypergeometric function to convolve of (rough) cosine-transform 
+    of pseudo-PDF fits w/ DGLAP/matching kernels
   */
-  pfq_t ppdfEval(double a, double b, double val);
+  pfq_t pseudoPDFCosineTransform(double a, double b, double val);
+
+  /*
+    Evaluate a 2F3 generalized hypergeometric function to convolve of (rough) sine-transform
+    of pseudo-PDF fits w/ DGLAP/matching kernels
+  */
+  pfq_t pseudoPDFSineTransform(double a, double b, double val);
 
   
   /*
