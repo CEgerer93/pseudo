@@ -61,7 +61,7 @@ namespace PITD
 	arb_set_d(rescaleRe,0.5*(a+i+1));
 	acb_t az;  acb_init(az); acb_set_arb_arb(az,rescaleRe,aIm);
 	acb_set(aZ+i,az);
-	acb_clear(az);
+	acb_clear(az); arb_clear(rescaleRe);
       }
     
     slong j = 0;
@@ -85,7 +85,9 @@ namespace PITD
     acb_t res; acb_init(res);
 
     // THE CALL
+    // std::cout << "BEFORE THE CALL" << std::endl;
     acb_hypgeom_pfq(res, aZ, p, bZ, q, z, 0, prec);
+    // std::cout << "AFTER THE CALL" << std::endl;
 
     arb_t hypImag; arb_init(hypImag);
     acb_get_imag(hypImag,res);
@@ -94,6 +96,8 @@ namespace PITD
     char * hypRealChar; char * hypImagChar;
     hypRealChar = arb_get_str(hypReal,prec,ARB_STR_NO_RADIUS);
     hypImagChar = arb_get_str(hypImag,prec,ARB_STR_NO_RADIUS);
+
+    // std::cout << "Char stuff" << std::endl;
 
     // Free more memory
     acb_clear(z);
@@ -104,7 +108,10 @@ namespace PITD
     arb_clear(hypReal);
     _acb_vec_clear(aZ,p);
     _acb_vec_clear(bZ,q);
+
+    arb_clear(rescaleRe);
     
+    // std::cout << "Before the resHypGeom" << std::endl;
     pfq_t resHypGeom;
     resHypGeom.real = atof(hypRealChar);
     resHypGeom.imag = atof(hypImagChar);
@@ -155,7 +162,7 @@ namespace PITD
         arb_set_d(rescaleRe,0.5*(a+i+2));
         acb_t az;  acb_init(az); acb_set_arb_arb(az,rescaleRe,aIm);
         acb_set(aZ+i,az);
-        acb_clear(az);
+        acb_clear(az); arb_clear(rescaleRe);
       }
     
     slong j = 0;
@@ -197,6 +204,8 @@ namespace PITD
     arb_clear(hypReal);
     _acb_vec_clear(aZ,p);
     _acb_vec_clear(bZ,q);
+
+    arb_clear(rescaleRe);
     
     pfq_t resHypGeom;
     resHypGeom.real = atof(hypRealChar);
