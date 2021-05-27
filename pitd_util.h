@@ -48,10 +48,16 @@ namespace PITD
 	return a*pow(ioffe, 1) + b*pow(ioffe, 3) + c*pow(ioffe, 5); // +d*pow(ioffe, 7);
 #else
       if ( reality )
-	return pow(2,-1-a-b)*M_PI*gsl_sf_gamma(2+a+b)*pseudoPDFCosineTransform(a,b,-1.0*pow(ioffe,2)/4).real;
+	{
+	  double dum = pseudoPDFCosineTransform(a,b,-1.0*pow(ioffe,2)/4).real;
+	  return pow(2,-1-a-b)*M_PI*gsl_sf_gamma(2+a+b)*dum;
+	}
       if ( !reality )
-	return pow(2,-3-a-b)*gsl_sf_gamma(2+a)*gsl_sf_gamma(1+b)*M_PI*ioffe*
-	  c*pseudoPDFSineTransform(a,b,-1.0*pow(ioffe,2)/4).real; // c should be N+ of q+ pseudo-PDF
+	{
+	  double dum = pseudoPDFSineTransform(a,b,-1.0*pow(ioffe,2)/4).real;
+	  return pow(2,-3-a-b)*gsl_sf_gamma(2+a)*gsl_sf_gamma(1+b)*M_PI*ioffe*c*dum;
+	  // c should be N+ of q+ pseudo-PDF
+	}
 #endif
     }
     // Def/Param constructors, with initializer lists

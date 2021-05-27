@@ -289,9 +289,13 @@ void rpitdWrite(std::ofstream &o, reducedPITD &r)
 int main( int argc, char *argv[] )
 {
 
-  // pfq_t dum = pseudoPDFSineTransform(0.125,3.0,-0.25);
-  // std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
-  // exit(8);
+  pfq_t dum = pseudoPDFSineTransform(0.125,3.0,-0.25);
+  std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
+  dum = pseudoPDFCosineTransform(0.125,3.0,-0.25);
+  std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
+  dum = GenHypGeomEval(1.5);
+  std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
+  exit(8);
 
   if ( argc != 11 )
     {
@@ -356,7 +360,7 @@ int main( int argc, char *argv[] )
 	    }
 	  else if ( type == 1 )
 	    {
-	      std::cout << "Parsing pseudo-PDF cosine/sine transforms" << std::endl;
+	      // std::cout << "Parsing pseudo-PDF cosine/sine transforms" << std::endl;
 	      IN >> std::setprecision(15) >> z >> comp >> chi2 >> norm >> a >> b >> c >> d;
 	      if ( comp == 0 )
 		rawPseudo.data.disps[z].rpitdR.push_back(rpitdFitParams_t(a,b,c)); // c is zero (05/21/2021)
@@ -402,7 +406,7 @@ int main( int argc, char *argv[] )
   for ( auto zi = rawPseudo.data.disps.begin(); zi != rawPseudo.data.disps.end(); ++zi )
     {
 #pragma omp parallel for // num_threads(2)
-      for ( int ji = 0; ji < gauge_configs; ji ++ )
+      for ( int ji = 0; ji < 5; ji ++ ) // gauge_configs
 	// N.B. Would like to iterate over a std::vec of rpitdFitParams_t, but then stuck with same component
       // for ( auto ji = zi->second.rpitdR.begin(); ji != zi->second.rpitdR.end(); ++ji )
 	{
@@ -433,14 +437,16 @@ int main( int argc, char *argv[] )
 		  //   {
 
 		      // DGLAP/MATCH: <rpitdFitParams for this jk> <ioffe time> <mat jk> <zsep> < real --> 0 >
-		      if ( rpitdReality == 0 )
+		      // if ( comp == 0 )
+		  if ( rpitdReality == 0 )
 			{
 			  dglap.real( convolutionDGLAP(zi->second.rpitdR[ji], mi->second.IT,
 						       mi->second.mat[ji].real(), zi->first, 0) );
 			  match.real( convolutionMATCH(zi->second.rpitdR[ji], mi->second.IT,
 			  			       mi->second.mat[ji].real(), zi->first, 0) );
 			}
-		      if ( rpitdReality == 1 )
+		      // if ( comp == 1 )
+		  if ( rpitdReality == 1 )
 			{
 			  dglap.imag( convolutionDGLAP(zi->second.rpitdI[ji], mi->second.IT,
 						       mi->second.mat[ji].imag(), zi->first, 1) );
@@ -475,9 +481,9 @@ int main( int argc, char *argv[] )
   // Push the outRaw, evoKernel, matchingKernel, theITD to H5 files
   // reducedPITD *dummy = new reducedPITD(gauge_configs,znum,6);
 
-  std::string outevoh5 =  "b_b0xDA__J0_A1pP." + matelemType + ".EVO.h5";
-  std::string outmatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".MATCH.h5";
-  std::string outevomatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".EVO-MATCH.h5";
+  std::string outevoh5 =  "b_b0xDA__J0_A1pP." + matelemType + ".zmin" + std::to_string(zmin) +"_zmax" + std::to_string(zmax) + ".EVO.h5";
+  std::string outmatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".zmin" + std::to_string(zmin) +"_zmax" + std::to_string(zmax) + ".MATCH.h5";
+  std::string outevomatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".zmin" + std::to_string(zmin) +"_zmax" + std::to_string(zmax) + ".EVO-MATCH.h5";
   char *evoKernelH5 = &outevoh5[0];
   char *matchingKernelH5 = &outmatchh5[0];
   char *theITDH5 = &outevomatchh5[0];

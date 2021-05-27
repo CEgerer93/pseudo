@@ -62,6 +62,8 @@ namespace PITD
 	acb_t az;  acb_init(az); acb_set_arb_arb(az,rescaleRe,aIm);
 	acb_set(aZ+i,az);
 	acb_clear(az); arb_clear(rescaleRe);
+
+	flint_cleanup();
       }
     
     slong j = 0;
@@ -115,6 +117,10 @@ namespace PITD
     pfq_t resHypGeom;
     resHypGeom.real = atof(hypRealChar);
     resHypGeom.imag = atof(hypImagChar);
+
+    // Must free these or memory leaks!
+    free(hypRealChar);
+    free(hypImagChar);
     
     flint_cleanup(); // free associated flint memory
     
@@ -163,6 +169,8 @@ namespace PITD
         acb_t az;  acb_init(az); acb_set_arb_arb(az,rescaleRe,aIm);
         acb_set(aZ+i,az);
         acb_clear(az); arb_clear(rescaleRe);
+	
+	flint_cleanup();
       }
     
     slong j = 0;
@@ -210,6 +218,10 @@ namespace PITD
     pfq_t resHypGeom;
     resHypGeom.real = atof(hypRealChar);
     resHypGeom.imag = atof(hypImagChar);
+
+    // Must free these or memory leaks!
+    free(hypRealChar);
+    free(hypImagChar);
     
     flint_cleanup(); // free associated flint memory
     
@@ -336,6 +348,11 @@ namespace PITD
     pfq_t resHypGeom;
     resHypGeom.real = atof(hypRealChar);
     resHypGeom.imag = atof(hypImagChar);
+
+    // Must free these or memory leaks!
+    free(hypRealChar);
+    free(hypImagChar);
+
 
     flint_cleanup(); // free associated flint memory
 

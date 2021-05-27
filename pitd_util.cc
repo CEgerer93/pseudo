@@ -558,6 +558,13 @@ namespace PITD
     */
     std::cout << "    WRITING H5 FILE = " << outH5 << std::endl;
     hid_t h5File = H5Fcreate(outH5,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
+    // std::string file_exists_err;
+    // try {
+    //   h5File = H5Fopen(outH5,H5F_ACC_RDWR,H5P_DEFAULT); //,H5P_DEFAULT);
+    // } catch(const std::string &e) {
+    //   h5File = H5Fcreate(outH5,H5F_ACC_TRUNC,H5P_DEFAULT,H5P_DEFAULT);
+    // }
+
     /*
       Some h5 handles for writing data
     */
