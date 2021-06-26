@@ -289,17 +289,21 @@ void rpitdWrite(std::ofstream &o, reducedPITD &r)
 int main( int argc, char *argv[] )
 {
 
-  pfq_t dum = pseudoPDFSineTransform(0.125,3.0,-0.25);
-  std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
-  dum = pseudoPDFCosineTransform(0.125,3.0,-0.25);
-  std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
-  dum = GenHypGeomEval(1.5);
-  std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
-  exit(8);
+  // pfq_t dum = pseudoPDFSineTransform(0.125,3.0,-0.25);
+  // dum.real = pow(2,-3-0.125-3.0)*gsl_sf_gamma(2+0.125)*gsl_sf_gamma(1+3.0)*M_PI*-0.25*2.0*pseudoPDFSineTransform(0.125,3.0,-0.25).real;
+  // dum.real = pow(2,-3-0.125-3.0)*gsl_sf_gamma(2+0.125)*gsl_sf_gamma(1+3.0)*M_PI*-0.25*2.0;
+  // dum.imag = 0.0;
+  
+  // std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
+  // dum = pseudoPDFCosineTransform(0.125,3.0,-0.25);
+  // std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
+  // // dum = GenHypGeomEval(1.5);
+  // // std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
+  // exit(8);
 
-  if ( argc != 11 )
+  if ( argc != 10 )
     {
-      std::cout << "Usage: $0 <polynomial(0) -or- pseudo-PDF (1) fit of rPITD> <pITD fit txt> <h5 file> <matelemType> <gauge_configs> <zmin> <zmax> <pmin> <pmax> <real (0) -or- imag (1)>" << std::endl;
+      std::cout << "Usage: $0 <polynomial(0) -or- pseudo-PDF (1) fit of rPITD> <pITD fit txt> <h5 file> <matelemType> <gauge_configs> <zmin> <zmax> <pmin> <pmax>" << std::endl;
       std::cout << "--- Note: should pass zmin = 0, pmin = 1, pmax = 6" << std::endl;
       exit(1);
     }
@@ -307,7 +311,7 @@ int main( int argc, char *argv[] )
   std::string rpitdFit, matelemType;
   int gauge_configs, zmin, zmax, pmin, pmax;
   int type; // type of fit of reduced pITD
-  int rpitdReality;
+  // int rpitdReality;
   
 
   std::stringstream ss;
@@ -319,7 +323,7 @@ int main( int argc, char *argv[] )
   ss << argv[7]; ss >> zmax;          ss.clear(); ss.str(std::string());
   ss << argv[8]; ss >> pmin;          ss.clear(); ss.str(std::string());
   ss << argv[9]; ss >> pmax;          ss.clear(); ss.str(std::string());
-  ss << argv[10]; ss >> rpitdReality; ss.clear(); ss.str(std::string());
+  // ss << argv[10]; ss >> rpitdReality; ss.clear(); ss.str(std::string());
 
 
   reducedPITD rawPseudo(gauge_configs);
@@ -362,8 +366,8 @@ int main( int argc, char *argv[] )
 	    {
 	      // std::cout << "Parsing pseudo-PDF cosine/sine transforms" << std::endl;
 	      IN >> std::setprecision(15) >> z >> comp >> chi2 >> norm >> a >> b >> c >> d;
-	      if ( comp == 0 )
-		rawPseudo.data.disps[z].rpitdR.push_back(rpitdFitParams_t(a,b,c)); // c is zero (05/21/2021)
+	      if ( comp == 0 )                                          //hard set a = 0.2 to match AR (06/01) 
+		rawPseudo.data.disps[z].rpitdR.push_back(rpitdFitParams_t(0.2,b,c)); // c is zero (05/21/2021)
 	      else if ( comp == 1 )
 		rawPseudo.data.disps[z].rpitdI.push_back(rpitdFitParams_t(a,b,norm)); // pass norm (05/21/2021)
 	      else {
@@ -406,7 +410,7 @@ int main( int argc, char *argv[] )
   for ( auto zi = rawPseudo.data.disps.begin(); zi != rawPseudo.data.disps.end(); ++zi )
     {
 #pragma omp parallel for // num_threads(2)
-      for ( int ji = 0; ji < 5; ji ++ ) // gauge_configs
+      for ( int ji = 0; ji < gauge_configs; ji ++ ) // gauge_configs
 	// N.B. Would like to iterate over a std::vec of rpitdFitParams_t, but then stuck with same component
       // for ( auto ji = zi->second.rpitdR.begin(); ji != zi->second.rpitdR.end(); ++ji )
 	{
@@ -433,20 +437,20 @@ int main( int argc, char *argv[] )
 		  std::complex<double> dglap, match;
 
 		  // Run over each component of pITD
-		  // for ( int comp = 0; comp != 2; comp++ )
-		  //   {
+		  for ( int comp = 0; comp != 2; comp++ )
+		    {
 
 		      // DGLAP/MATCH: <rpitdFitParams for this jk> <ioffe time> <mat jk> <zsep> < real --> 0 >
-		      // if ( comp == 0 )
-		  if ( rpitdReality == 0 )
+		      if ( comp == 0 )
+			// if ( rpitdReality == 0 )
 			{
 			  dglap.real( convolutionDGLAP(zi->second.rpitdR[ji], mi->second.IT,
 						       mi->second.mat[ji].real(), zi->first, 0) );
 			  match.real( convolutionMATCH(zi->second.rpitdR[ji], mi->second.IT,
 			  			       mi->second.mat[ji].real(), zi->first, 0) );
 			}
-		      // if ( comp == 1 )
-		  if ( rpitdReality == 1 )
+		      if ( comp == 1 )
+			// if ( rpitdReality == 1 )
 			{
 			  dglap.imag( convolutionDGLAP(zi->second.rpitdI[ji], mi->second.IT,
 						       mi->second.mat[ji].imag(), zi->first, 1) );
@@ -454,7 +458,7 @@ int main( int argc, char *argv[] )
 						       mi->second.mat[ji].imag(), zi->first, 1) );
 			}
 	
-		    // } // comp
+		    } // comp
 		  
 		  // std::cout << "----> DGLAP = " << dglap << "          ----> MATCH = " << match << std::endl;
 		  
@@ -481,9 +485,9 @@ int main( int argc, char *argv[] )
   // Push the outRaw, evoKernel, matchingKernel, theITD to H5 files
   // reducedPITD *dummy = new reducedPITD(gauge_configs,znum,6);
 
-  std::string outevoh5 =  "b_b0xDA__J0_A1pP." + matelemType + ".zmin" + std::to_string(zmin) +"_zmax" + std::to_string(zmax) + ".EVO.h5";
-  std::string outmatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".zmin" + std::to_string(zmin) +"_zmax" + std::to_string(zmax) + ".MATCH.h5";
-  std::string outevomatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".zmin" + std::to_string(zmin) +"_zmax" + std::to_string(zmax) + ".EVO-MATCH.h5";
+  std::string outevoh5 =  "b_b0xDA__J0_A1pP." + matelemType + ".zmin" + std::to_string(zmin) +"_zmax" + std::to_string(zmax) + ".imagisjunk.EVO.h5";
+  std::string outmatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".zmin" + std::to_string(zmin) +"_zmax" + std::to_string(zmax) + ".imagisjunk.MATCH.h5";
+  std::string outevomatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".zmin" + std::to_string(zmin) +"_zmax" + std::to_string(zmax) + ".imagisjunk.EVO-MATCH.h5";
   char *evoKernelH5 = &outevoh5[0];
   char *matchingKernelH5 = &outmatchh5[0];
   char *theITDH5 = &outevomatchh5[0];
