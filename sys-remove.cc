@@ -13,7 +13,7 @@
 using namespace PITD;
 
 // Hard set of zmin/zmax/pmin/pmax
-const int zmin(1), zmax(12), pmin(1), pmax(6);
+const int zmin(1), zmax(16), pmin(1), pmax(6);
 int gauge_configs;
 
 
