@@ -9,6 +9,19 @@
 
 namespace PITD
 {
+  // Print a vector
+  template<typename T>
+  std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
+  {
+    if ( v.size() > 0 )
+      {
+	os << v[0];
+	for ( int i = 1; i < v.size(); ++i )
+	  os << " " << v[i];
+      }
+    return os;
+  }
+
   // Operator to allow direct multiplication of long double and std::complex<double>
   std::complex<double> operator*(long double ld, std::complex<double> c)
   {
