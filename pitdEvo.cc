@@ -289,14 +289,15 @@ void rpitdWrite(std::ofstream &o, reducedPITD &r)
 int main( int argc, char *argv[] )
 {
 
-  // pfq_t dum = pseudoPDFSineTransform(0.125,3.0,-0.25);
-  // dum.real = pow(2,-3-0.125-3.0)*gsl_sf_gamma(2+0.125)*gsl_sf_gamma(1+3.0)*M_PI*-0.25*2.0*pseudoPDFSineTransform(0.125,3.0,-0.25).real;
-  // dum.real = pow(2,-3-0.125-3.0)*gsl_sf_gamma(2+0.125)*gsl_sf_gamma(1+3.0)*M_PI*-0.25*2.0;
+  // pfq_t dum;
+  // dum.real = pow(2,-3-0.125-3.0)*gsl_sf_gamma(2+0.125)*gsl_sf_gamma(1+3.0)*M_PI*0.25*2.0*pseudoPDFSineTransform(0.125,3.0,-1.0*pow(0.25,2)/4).real;
+  // // dum.real = pseudoPDFSineTransform(0.125,3.0,-1.0*pow(0.25,2)/4).real;
+  // // dum.imag = pseudoPDFSineTransform(0.125,3.0,-1.0*pow(0.25,2)/4).imag;
   // dum.imag = 0.0;
   
-  // std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
-  // dum = pseudoPDFCosineTransform(0.125,3.0,-0.25);
-  // std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
+  // std::cout << std::setprecision(10) << "Sine-transform 2F3 = " << dum.real << " " << dum.imag << std::endl;
+  // dum = pseudoPDFCosineTransform(0.125,3.0,-1.0*pow(0.25,2)/4);
+  // std::cout << std::setprecision(10) << "Cosine-transform 2F3 = " << dum.real << " " << dum.imag << std::endl;
   // // dum = GenHypGeomEval(1.5);
   // // std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
   // exit(8);
@@ -366,10 +367,10 @@ int main( int argc, char *argv[] )
 	    {
 	      // std::cout << "Parsing pseudo-PDF cosine/sine transforms" << std::endl;
 	      IN >> std::setprecision(15) >> z >> comp >> chi2 >> norm >> a >> b >> c >> d;
-	      if ( comp == 0 )                                          //hard set a = 0.2 to match AR (06/01) 
+	      if ( comp == 0 )                                          // hard set a = 0.2 to match AR (06/01) 
 		rawPseudo.data.disps[z].rpitdR.push_back(rpitdFitParams_t(0.2,b,c)); // c is zero (05/21/2021)
-	      else if ( comp == 1 )
-		rawPseudo.data.disps[z].rpitdI.push_back(rpitdFitParams_t(a,b,norm)); // pass norm (05/21/2021)
+	      else if ( comp == 1 )                                     // hard set a = 0.2 to match AR (06/29)
+		rawPseudo.data.disps[z].rpitdI.push_back(rpitdFitParams_t(0.2,b,norm)); // pass norm (05/21/2021)
 	      else {
 		std::cerr << "Unable to parse reduced-pITD fit coefficients!" << std::endl;
 		exit(2);
@@ -485,9 +486,9 @@ int main( int argc, char *argv[] )
   // Push the outRaw, evoKernel, matchingKernel, theITD to H5 files
   // reducedPITD *dummy = new reducedPITD(gauge_configs,znum,6);
 
-  std::string outevoh5 =  "b_b0xDA__J0_A1pP." + matelemType + ".zmin" + std::to_string(zmin) +"_zmax" + std::to_string(zmax) + ".imagisjunk.EVO.h5";
-  std::string outmatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".zmin" + std::to_string(zmin) +"_zmax" + std::to_string(zmax) + ".imagisjunk.MATCH.h5";
-  std::string outevomatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".zmin" + std::to_string(zmin) +"_zmax" + std::to_string(zmax) + ".imagisjunk.EVO-MATCH.h5";
+  std::string outevoh5 =  "b_b0xDA__J0_A1pP." + matelemType + ".zmin" + std::to_string(zmin) +"_zmax" + std::to_string(zmax) + ".imagiscorrect.EVO.h5";
+  std::string outmatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".zmin" + std::to_string(zmin) +"_zmax" + std::to_string(zmax) + ".imagiscorrect.MATCH.h5";
+  std::string outevomatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".zmin" + std::to_string(zmin) +"_zmax" + std::to_string(zmax) + ".imagiscorrect.EVO-MATCH.h5";
   char *evoKernelH5 = &outevoh5[0];
   char *matchingKernelH5 = &outmatchh5[0];
   char *theITDH5 = &outevomatchh5[0];

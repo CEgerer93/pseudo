@@ -50,7 +50,7 @@ namespace PITD
       if ( reality )
 	{
 	  double dum = pseudoPDFCosineTransform(a,b,-1.0*pow(ioffe,2)/4).real;
-	  return pow(2,-1-a-b)*M_PI*gsl_sf_gamma(2+a+b)*dum;
+	  return dum; //pow(2,-1-a-b)*M_PI*gsl_sf_gamma(2+a+b)*dum;
 	}
       if ( !reality )
 	{

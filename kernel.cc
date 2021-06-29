@@ -88,7 +88,7 @@ namespace PITD
 
     // THE CALL
     // std::cout << "BEFORE THE CALL" << std::endl;
-    acb_hypgeom_pfq(res, aZ, p, bZ, q, z, 0, prec);
+    acb_hypgeom_pfq(res, aZ, p, bZ, q, z, 0, prec); // 0 INDICATES NON-REGULARIZED PFQ
     // std::cout << "AFTER THE CALL" << std::endl;
 
     arb_t hypImag; arb_init(hypImag);
@@ -179,10 +179,10 @@ namespace PITD
 
     acb_t bz;  acb_init(bz); acb_set_arb_arb(bz,bRe,bIm);
     acb_set(bZ+j, bz); j++;
-    arb_set_d(rescaleRe,1.5+(a+b)/2);
+    arb_set_d(rescaleRe,(3+a+b)/2);
     acb_set_arb_arb(bz,rescaleRe,bIm);
     acb_set(bZ+j, bz); j++;
-    arb_set_d(rescaleRe,2+(a+b)/2);
+    arb_set_d(rescaleRe,(4+a+b)/2);
     acb_set_arb_arb(bz,rescaleRe,bIm);
     acb_set(bZ+j, bz);
 
@@ -193,7 +193,7 @@ namespace PITD
     acb_t res; acb_init(res);
 
     // THE CALL
-    acb_hypgeom_pfq(res, aZ, p, bZ, q, z, 0, prec);
+    acb_hypgeom_pfq(res, aZ, p, bZ, q, z, 1, prec); // 1 INDICATES REGULARIZED PFQ
 
     arb_t hypImag; arb_init(hypImag);
     acb_get_imag(hypImag,res);
