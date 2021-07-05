@@ -17,9 +17,27 @@
 #include "acb_hypgeom.h"
 
 #include "pitd_util.h"
+#include "kernel.h"
 
 namespace PITD
 {
+
+#ifdef PSEUDOCONVOL
+  double pseudoConvol2F3IntegralRep(double x, void * p)
+  {
+    pseudoConvolParams_t * locPtr = (pseudoConvolParams_t *)p;
+
+    double res2F3(0.0);
+    if ( locPtr->reality )
+      res2F3 = cos(x*locPtr->nu)*
+        (gsl_sf_gamma(2+locPtr->a+locPtr->b)/(gsl_sf_gamma(1+locPtr->a)*gsl_sf_gamma(1+locPtr->b)))*
+        pow(x,locPtr->a)*pow(1-x,locPtr->b);
+    if ( !locPtr->reality )
+      res2F3 = sin(x*locPtr->nu)*locPtr->norm*pow(x,locPtr->a)*pow(1-x,locPtr->b);
+
+    return res2F3;
+  }
+#endif
 
   /*
     Evaluate a 2F3 generalized hypergeometric function to convolve of (rough) cosine-transform
@@ -34,94 +52,62 @@ namespace PITD
 
     // Convert the val reference into a acb_t struct
     arb_t zRe; arb_init(zRe); arb_set_d(zRe,val);
-    arb_t zIm; arb_init(zIm); arb_set_d(zIm,0.0);
-    // Pack real/imag components into a complex struct
-    acb_t z; acb_init(z);
-    acb_set_arb_arb(z,zRe,zIm);
-    // Free memory for the components
-    arb_clear(zRe); arb_clear(zIm);
 
     // Construct vectors for the numerator/denominators of pFq
-    arb_t aRe, aIm;
-    arb_init(aRe); arb_init(aIm);
-    arb_set_d(aRe,0.5); arb_set_d(aIm,0);
-    arb_t bRe, bIm;
-    arb_init(bRe); arb_init(bIm);
-    arb_set_d(bRe,0.5); arb_set_d(bIm,0);
+    arb_t aRe;
+    arb_init(aRe);
+    arb_set_d(aRe,0.5);
+    arb_t bRe;
+    arb_init(bRe);
+    arb_set_d(bRe,0.5);
 
-    // acb_t az;  acb_init(az); acb_set_arb_arb(az,aRe,aIm);
-    // acb_t bz;  acb_init(bz); acb_set_arb_arb(bz,bRe,bIm);
-    acb_struct * aZ = _acb_vec_init(p);
-    acb_struct * bZ = _acb_vec_init(q);
+    arb_struct * aZ = _arb_vec_init(p);
+    arb_struct * bZ = _arb_vec_init(q);
   
     // Now set each component of numerator/denominator vectors
     for ( slong i = 0; i < p; i++ )
       {
 	arb_t rescaleRe; arb_init(rescaleRe);
 	arb_set_d(rescaleRe,0.5*(a+i+1));
-	acb_t az;  acb_init(az); acb_set_arb_arb(az,rescaleRe,aIm);
-	acb_set(aZ+i,az);
-	acb_clear(az); arb_clear(rescaleRe);
+	arb_set(aZ+i,rescaleRe);
+	arb_clear(rescaleRe);
 
 	flint_cleanup();
       }
     
     slong j = 0;
 
-    arb_t rescaleRe; arb_init(rescaleRe);
-
-    acb_t bz;  acb_init(bz); acb_set_arb_arb(bz,bRe,bIm);
-    acb_set(bZ+j, bz); j++;
-    arb_set_d(rescaleRe,1.0+(a+b)/2);
-    acb_set_arb_arb(bz,rescaleRe,bIm);
-    acb_set(bZ+j, bz); j++;
-    arb_set_d(rescaleRe,1.5+(a+b)/2);
-    acb_set_arb_arb(bz,rescaleRe,bIm);
-    acb_set(bZ+j, bz);
-
+    arb_t bz;  arb_init(bz); arb_set_d(bz,0.5);
+    arb_set(bZ+j, bz); j++;
+    arb_set_d(bz,1.0+(a+b)/2);
+    arb_set(bZ+j, bz); j++;
+    arb_set_d(bz,1.5+(a+b)/2);
+    arb_set(bZ+j, bz);
 
     // Free some memory
-    arb_clear(aRe); arb_clear(aIm);
-    arb_clear(bRe); arb_clear(bIm);
+    arb_clear(aRe);
+    arb_clear(bRe);
 
-    acb_t res; acb_init(res);
+    arb_t res; arb_init(res);
 
     // THE CALL
-    // std::cout << "BEFORE THE CALL" << std::endl;
-    acb_hypgeom_pfq(res, aZ, p, bZ, q, z, 0, prec); // 0 INDICATES NON-REGULARIZED PFQ
-    // std::cout << "AFTER THE CALL" << std::endl;
+    arb_hypgeom_pfq(res, aZ, p, bZ, q, zRe, 0, prec); // 0 INDICATES NON-REGULARIZED PFQ
 
-    arb_t hypImag; arb_init(hypImag);
-    acb_get_imag(hypImag,res);
-    arb_t hypReal; arb_init(hypReal);
-    acb_get_real(hypReal,res);
-    char * hypRealChar; char * hypImagChar;
-    hypRealChar = arb_get_str(hypReal,prec,ARB_STR_NO_RADIUS);
-    hypImagChar = arb_get_str(hypImag,prec,ARB_STR_NO_RADIUS);
-
-    // std::cout << "Char stuff" << std::endl;
+    char * hypRealChar;
+    hypRealChar = arb_get_str(res,prec,ARB_STR_NO_RADIUS);
 
     // Free more memory
-    acb_clear(z);
-    // acb_clear(az);
-    acb_clear(bz);
-    acb_clear(res);
-    arb_clear(hypImag);
-    arb_clear(hypReal);
-    _acb_vec_clear(aZ,p);
-    _acb_vec_clear(bZ,q);
-
-    arb_clear(rescaleRe);
+    arb_clear(zRe);
+    arb_clear(bz);
+    arb_clear(res);
+    _arb_vec_clear(aZ,p);
+    _arb_vec_clear(bZ,q);
     
-    // std::cout << "Before the resHypGeom" << std::endl;
     pfq_t resHypGeom;
     resHypGeom.real = atof(hypRealChar);
-    resHypGeom.imag = atof(hypImagChar);
 
     // Must free these or memory leaks!
     free(hypRealChar);
-    free(hypImagChar);
-    
     flint_cleanup(); // free associated flint memory
     
     return resHypGeom;
@@ -141,92 +127,117 @@ namespace PITD
 
     // Convert the val reference into a acb_t struct
     arb_t zRe; arb_init(zRe); arb_set_d(zRe,val);
-    arb_t zIm; arb_init(zIm); arb_set_d(zIm,0.0);
-    // Pack real/imag components into a complex struct
-    acb_t z; acb_init(z);
-    acb_set_arb_arb(z,zRe,zIm);
-    // Free memory for the components
-    arb_clear(zRe); arb_clear(zIm);
 
     // Construct vectors for the numerator/denominators of pFq
-    arb_t aRe, aIm;
-    arb_init(aRe); arb_init(aIm);
-    arb_set_d(aRe,0.5); arb_set_d(aIm,0);
-    arb_t bRe, bIm;
-    arb_init(bRe); arb_init(bIm);
-    arb_set_d(bRe,1.5); arb_set_d(bIm,0);
+    arb_t aRe;
+    arb_init(aRe);
+    arb_set_d(aRe,0.5);
+    arb_t bRe;
+    arb_init(bRe);
+    arb_set_d(bRe,1.5);
 
-    // acb_t az;  acb_init(az); acb_set_arb_arb(az,aRe,aIm);
-    // acb_t bz;  acb_init(bz); acb_set_arb_arb(bz,bRe,bIm);
-    acb_struct * aZ = _acb_vec_init(p);
-    acb_struct * bZ = _acb_vec_init(q);
+    arb_struct * aZ = _arb_vec_init(p);
+    arb_struct * bZ = _arb_vec_init(q);
   
     // Now set each component of numerator/denominator vectors
     for ( slong i = 0; i < p; i++ )
       {
         arb_t rescaleRe; arb_init(rescaleRe);
         arb_set_d(rescaleRe,0.5*(a+i+2));
-        acb_t az;  acb_init(az); acb_set_arb_arb(az,rescaleRe,aIm);
-        acb_set(aZ+i,az);
-        acb_clear(az); arb_clear(rescaleRe);
+        arb_set(aZ+i,rescaleRe);
+	arb_clear(rescaleRe);
 	
 	flint_cleanup();
       }
     
     slong j = 0;
 
-    arb_t rescaleRe; arb_init(rescaleRe);
-
-    acb_t bz;  acb_init(bz); acb_set_arb_arb(bz,bRe,bIm);
-    acb_set(bZ+j, bz); j++;
-    arb_set_d(rescaleRe,(3+a+b)/2);
-    acb_set_arb_arb(bz,rescaleRe,bIm);
-    acb_set(bZ+j, bz); j++;
-    arb_set_d(rescaleRe,(4+a+b)/2);
-    acb_set_arb_arb(bz,rescaleRe,bIm);
-    acb_set(bZ+j, bz);
+    arb_t bz;  arb_init(bz); arb_set_d(bz,1.5);
+    arb_set(bZ+j, bz); j++;
+    arb_set_d(bz,(3+a+b)/2);
+    arb_set(bZ+j, bz); j++;
+    arb_set_d(bz,(4+a+b)/2);
+    arb_set(bZ+j, bz);
 
     // Free some memory
-    arb_clear(aRe); arb_clear(aIm);
-    arb_clear(bRe); arb_clear(bIm);
+    arb_clear(aRe);
+    arb_clear(bRe);
 
-    acb_t res; acb_init(res);
-
+    arb_t res; arb_init(res);
     // THE CALL
-    acb_hypgeom_pfq(res, aZ, p, bZ, q, z, 1, prec); // 1 INDICATES REGULARIZED PFQ
+    arb_hypgeom_pfq(res, aZ, p, bZ, q, zRe, 0, prec); // 1 INDICATES REGULARIZED PFQ
 
-    arb_t hypImag; arb_init(hypImag);
-    acb_get_imag(hypImag,res);
-    arb_t hypReal; arb_init(hypReal);
-    acb_get_real(hypReal,res);
-    char * hypRealChar; char * hypImagChar;
-    hypRealChar = arb_get_str(hypReal,prec,ARB_STR_NO_RADIUS);
-    hypImagChar = arb_get_str(hypImag,prec,ARB_STR_NO_RADIUS);
+    char * hypRealChar;
+    hypRealChar = arb_get_str(res,prec,ARB_STR_NO_RADIUS);
 
     // Free more memory
-    acb_clear(z);
-    // acb_clear(az);
-    acb_clear(bz);
-    acb_clear(res);
-    arb_clear(hypImag);
-    arb_clear(hypReal);
-    _acb_vec_clear(aZ,p);
-    _acb_vec_clear(bZ,q);
+    arb_clear(zRe);
+    arb_clear(bz);
+    arb_clear(res);
+    _arb_vec_clear(aZ,p);
+    _arb_vec_clear(bZ,q);
 
-    arb_clear(rescaleRe);
-    
     pfq_t resHypGeom;
     resHypGeom.real = atof(hypRealChar);
-    resHypGeom.imag = atof(hypImagChar);
 
     // Must free these or memory leaks!
-    free(hypRealChar);
-    free(hypImagChar);
-    
+    free(hypRealChar);  
     flint_cleanup(); // free associated flint memory
     
     return resHypGeom;
   }
+
+#ifdef PSEUDOCONVOL
+  /*
+    Effectively evaluate the 2F3 generalized hypergeometric functions by leaving them as explicit
+    cosine-/sine-integral transforms of pseudo-PDF
+  */
+  double pseudoPDFCosineTransform_IntegralRep(double a, double b, double ioffe)
+  {
+    pseudoConvolParams_t pseudoConvolParams(ioffe, a, b, 0.0, true);
+
+    gsl_function F;
+    F.function = &pseudoConvol2F3IntegralRep;
+    F.params = &pseudoConvolParams;
+
+    size_t n = 500;
+    gsl_integration_cquad_workspace * w = gsl_integration_cquad_workspace_alloc(n);
+    
+    double dum, dumerr;
+    size_t nevals;
+    double epsabs=0.0000001;
+    double epsrel = 0.0;
+
+    int success = gsl_integration_cquad(&F,0.0,1.0,epsabs,epsrel,w,&dum,&dumerr,&nevals);
+    // Free associated memory
+    gsl_integration_cquad_workspace_free(w);
+
+    return dum;
+  }
+
+  double pseudoPDFSineTransform_IntegralRep(double a, double b, double ioffe, double c)
+  {
+    pseudoConvolParams_t pseudoConvolParams(ioffe, a, b, c, false);
+
+    gsl_function F;
+    F.function = &pseudoConvol2F3IntegralRep;
+    F.params = &pseudoConvolParams;
+
+    size_t n = 500;
+    gsl_integration_cquad_workspace * w = gsl_integration_cquad_workspace_alloc(n);
+    
+    double dum, dumerr;
+    size_t nevals;
+    double epsabs=0.0000001;
+    double epsrel = 0.0;
+
+    int success = gsl_integration_cquad(&F,0.0,1.0,epsabs,epsrel,w,&dum,&dumerr,&nevals);
+    // Free associated memory
+    gsl_integration_cquad_workspace_free(w);
+
+    return dum;
+  }
+#endif
 
 
   /*

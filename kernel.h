@@ -28,6 +28,13 @@ namespace PITD
   */
   pfq_t pseudoPDFSineTransform(double a, double b, double val);
 
+  /*
+    Effectively evaluate the 2F3 generalized hypergeometric functions by leaving them as explicit
+    cosine-/sine-integral transforms of pseudo-PDF
+  */
+  double pseudoPDFCosineTransform_IntegralRep(double a, double b, double ioffe);
+  double pseudoPDFSineTransform_IntegralRep(double a, double b, double ioffe, double c);
+
   
   /*
     Evaluate the generalized hypergeometric function pFq

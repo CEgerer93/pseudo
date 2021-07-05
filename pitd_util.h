@@ -12,7 +12,8 @@
 #include<complex>
 
 #include<gsl/gsl_matrix.h>
-#include <gsl/gsl_sf_gamma.h> // Evaluaton of Gamma/Beta functions
+#include<gsl/gsl_sf_gamma.h> // Evaluaton of Gamma/Beta functions
+#include<gsl/gsl_integration.h> // Numerical integration
 
 #include "hdf5.h"
 #include "kernel.h" // To allow potential for 2F3 evolution w/ pseudo-PDF
@@ -33,6 +34,21 @@ namespace PITD
   // Operator to allow direct multiplication of long double and std::complex<double>
   std::complex<double> operator*(long double ld, std::complex<double> c);
 
+
+#ifdef PSEUDOCONVOL
+  struct pseudoConvolParams_t
+  {
+    bool reality;
+    double nu, a, b, norm;
+
+    // Parameterized constructor, with initializer list
+    pseudoConvolParams_t(double _nu = 0.0, double _a = 0.0, double _b = 0.0, double _norm = 0.0,
+			 bool _reality = true) : reality(_reality), nu(_nu), a(_a), b(_b), norm(_norm) {}
+  };
+#endif
+
+
+
   /*
     Structure to hold reduced-pITD fit parameters, and fit function for Re/Im component of pITD
   */
@@ -47,17 +63,35 @@ namespace PITD
       if ( !reality )
 	return a*pow(ioffe, 1) + b*pow(ioffe, 3) + c*pow(ioffe, 5); // +d*pow(ioffe, 7);
 #else
+      /*
+      	The original 2F3 evaluation
+      */
       if ( reality )
-	{
-	  double dum = pseudoPDFCosineTransform(a,b,-1.0*pow(ioffe,2)/4).real;
-	  return dum; //pow(2,-1-a-b)*M_PI*gsl_sf_gamma(2+a+b)*dum;
-	}
+      	{
+      	  double dum = pseudoPDFCosineTransform(a,b,-1.0*pow(ioffe,2)/4).real;
+      	  return dum; //pow(2,-1-a-b)*M_PI*gsl_sf_gamma(2+a+b)*dum;
+      	}
       if ( !reality )
-	{
-	  double dum = pseudoPDFSineTransform(a,b,-1.0*pow(ioffe,2)/4).real;
-	  return pow(2,-3-a-b)*gsl_sf_gamma(2+a)*gsl_sf_gamma(1+b)*M_PI*ioffe*c*dum;
-	  // c should be N+ of q+ pseudo-PDF
-	}
+      	{
+      	  double dum = pseudoPDFSineTransform(a,b,-1.0*pow(ioffe,2)/4).real;
+      	  return pow(2,-3-a-b)*gsl_sf_gamma(2+a)*gsl_sf_gamma(1+b)*M_PI*ioffe*c*dum;
+      	  // c should be N+ of q+ pseudo-PDF
+      	}
+
+      /* /\* */
+      /* 	(07/02/2021) */
+      /* 	Let's speed things up by leaving the 2F3 function as an explicit cos/sin-transform of pseudo-PDF */
+      /* *\/ */
+      /* if ( reality ) */
+      /* 	{ */
+      /* 	  double dum = pseudoPDFCosineTransform_IntegralRep(a,b,ioffe); */
+      /* 	  return dum; */
+      /* 	} */
+      /* if ( !reality ) */
+      /* 	{ */
+      /* 	  double dum = pseudoPDFSineTransform_IntegralRep(a,b,ioffe,c); */
+      /* 	  return dum; */
+      /* 	} */
 #endif
     }
     // Def/Param constructors, with initializer lists

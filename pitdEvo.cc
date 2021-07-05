@@ -28,7 +28,7 @@
 
 // #include "pitd_util_NEW_TEST.h"
 #include "pitd_util.h"
-#include "kernel.h"
+//#include "kernel.h"
 
 using namespace PITD;
 
@@ -290,13 +290,14 @@ int main( int argc, char *argv[] )
 {
 
   // pfq_t dum;
-  // dum.real = pow(2,-3-0.125-3.0)*gsl_sf_gamma(2+0.125)*gsl_sf_gamma(1+3.0)*M_PI*0.25*2.0*pseudoPDFSineTransform(0.125,3.0,-1.0*pow(0.25,2)/4).real;
-  // // dum.real = pseudoPDFSineTransform(0.125,3.0,-1.0*pow(0.25,2)/4).real;
+  // // dum.real = pow(2,-3-0.125-3.0)*gsl_sf_gamma(2+0.125)*gsl_sf_gamma(1+3.0)*M_PI*0.25*2.0*pseudoPDFSineTransform(0.125,3.0,-1.0*pow(0.25,2)/4).real;
+  // dum.real = pseudoPDFSineTransform(0.125,3.0,-1.0*pow(0.25,2)/4).real;
   // // dum.imag = pseudoPDFSineTransform(0.125,3.0,-1.0*pow(0.25,2)/4).imag;
   // dum.imag = 0.0;
   
   // std::cout << std::setprecision(10) << "Sine-transform 2F3 = " << dum.real << " " << dum.imag << std::endl;
   // dum = pseudoPDFCosineTransform(0.125,3.0,-1.0*pow(0.25,2)/4);
+  // dum.imag = 0.0;
   // std::cout << std::setprecision(10) << "Cosine-transform 2F3 = " << dum.real << " " << dum.imag << std::endl;
   // // dum = GenHypGeomEval(1.5);
   // // std::cout << std::setprecision(10) << dum.real << " " << dum.imag << std::endl;
@@ -445,19 +446,24 @@ int main( int argc, char *argv[] )
 		      if ( comp == 0 )
 			// if ( rpitdReality == 0 )
 			{
+			  std::cout << "(RE) Starting evaluation" << std::endl;
 			  dglap.real( convolutionDGLAP(zi->second.rpitdR[ji], mi->second.IT,
 						       mi->second.mat[ji].real(), zi->first, 0) );
 			  match.real( convolutionMATCH(zi->second.rpitdR[ji], mi->second.IT,
 			  			       mi->second.mat[ji].real(), zi->first, 0) );
+
+			  std::cout << "(RE) Running ? = " << dglap.real() << " " << match.real() << std::endl;
 			}
 		      if ( comp == 1 )
-			// if ( rpitdReality == 1 )
-			{
-			  dglap.imag( convolutionDGLAP(zi->second.rpitdI[ji], mi->second.IT,
-						       mi->second.mat[ji].imag(), zi->first, 1) );
-			  match.imag( convolutionMATCH(zi->second.rpitdI[ji], mi->second.IT,
-						       mi->second.mat[ji].imag(), zi->first, 1) );
-			}
+		      	// if ( rpitdReality == 1 )
+		      	{
+			  std::cout << "(IM) Starting evaluation" << std::endl;
+		      	  dglap.imag( convolutionDGLAP(zi->second.rpitdI[ji], mi->second.IT,
+		      				       mi->second.mat[ji].imag(), zi->first, 1) );
+		      	  match.imag( convolutionMATCH(zi->second.rpitdI[ji], mi->second.IT,
+		      				       mi->second.mat[ji].imag(), zi->first, 1) );
+			  std::cout << "(IM) Running ? = " << dglap.imag() << " " << match.imag() << std::endl;
+		      	}
 	
 		    } // comp
 		  
