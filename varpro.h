@@ -61,7 +61,7 @@ namespace VarPro
     virtual ~varPro() {};
 
     // Populate the non-linear basis of functions
-    void makeBasis(double a, double b, std::vector<std::pair<int, double> > &nuz);
+    void makeBasis(int dirac, double a, double b, std::vector<std::pair<int, double> > &nuz);
     // Populate Y Solution vector
     void makeY(gsl_vector *data, gsl_matrix *invCov, pdfFitParams_t &fitParams);
     // Populate Phi matrix

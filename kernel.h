@@ -54,27 +54,27 @@ namespace PITD
   /*
     Support for Taylor expansion of NLO pITD->PDF Matching Kernel
   */
-  double texp_cn(int n, int z);
+  double texp_cn(int n, int z, int dirac);
 
   /*
     Support for Taylor expansion of DGLAP Kernel
   */
-  double texp_gn(int n);
+  double texp_gn(int n, int dirac);
 
   /*
     Support for Taylor expansion of Lattice-MSbar matching kernel
   */
-  double texp_dn(int n);
+  double texp_dn(int n, int dirac);
 
   /*
     Support for Taylor expansion of Real(pITD->PDF Kernel)*(Jacobi PDF Parametrization)
   */
-  double pitd_texp_sigma_n(int n, int trunc, double a, double b, double nu, int z);
+  double pitd_texp_sigma_n(int n, int trunc, double a, double b, double nu, int z, int dirac);
 
   /*
     Support for Taylor expansion of Imag(pITD->PDF Kernel)*(Jacobi PDF Parametrization)
   */
-  double pitd_texp_eta_n(int n, int trunc, double a, double b, double nu, int z);
+  double pitd_texp_eta_n(int n, int trunc, double a, double b, double nu, int z, int dirac);
 
   /*
     Support for Taylor expansion of Real(pITD->PDF Kernel *TREE LEVEL*)*(Jacobi PDF Parametrization)

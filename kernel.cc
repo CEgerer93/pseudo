@@ -216,7 +216,7 @@ namespace PITD
   /*
     Support for Taylor expansion of DGLAP Kernel
   */
-  double texp_gn(int n)
+  double texp_gn(int n, int dirac)
   {
     double sum(0.0);
     // Sum part of what would be a divergent p-series
@@ -224,13 +224,20 @@ namespace PITD
       sum += 1.0/k;
     sum*=2;
 
-    return 3/2 - 1/(1+n) - 1/(2+n) - sum;
+    if ( dirac == 8 )
+      return 3/2 - 1/(1+n) - 1/(2+n) - sum;
+    else if ( dirac == 11 )
+      return 3/2 - 1/(1+n) - 1/(2+n) - sum;
+    else {
+      std::cerr << "Insertion Gamma = " << dirac << " not supported";
+      exit(4);
+    }
   }
 
   /*
     Support for Taylor expansion of Lattice-MSbar matching kernel
   */
-  double texp_dn(int n)
+  double texp_dn(int n, int dirac)
   {
     double sum(0.0);
     // Sum part of what would be a divergent p-series
@@ -238,28 +245,36 @@ namespace PITD
       sum += 1.0/k;
     sum = pow(sum, 2);
 
-    return 2*( sum + (2*pow(M_PI,2)+n*(n+3)*(3+pow(M_PI,2)))/(6*(n+1)*(n+2)) - gsl_sf_psi_1_int(n+1) );
+    if ( dirac == 8 )
+      return 2*( sum + (2*pow(M_PI,2)+n*(n+3)*(3+pow(M_PI,2)))/(6*(n+1)*(n+2)) - gsl_sf_psi_1_int(n+1) );
+    else if ( dirac == 11 )
+      return 2*( sum + (2*pow(M_PI,2)+n*(n+3)*(6+pow(M_PI,2)))/(6*(n+1)*(n+2)) - gsl_sf_psi_1_int(n+1) );
+    else {
+      std::cerr << "Insertion Gamma = " << dirac << " not supported";
+      exit(4);
+    }
   }
 
   /*
     Support for Taylor expansion of NLO pITD->PDF Matching Kernel
   */
-  double texp_cn(int n, int z)
+  double texp_cn(int n, int z, int dirac)
   {
-    return 1-((alphaS*Cf)/(2*M_PI))*( texp_gn(n)*log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) ) + texp_dn(n) );
+    return 1-((alphaS*Cf)/(2*M_PI))*( texp_gn(n, dirac)*log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) )
+				      + texp_dn(n, dirac) );
   }
 
   /*
     Support for Taylor expansion of Real(pITD->PDF Kernel)*(Jacobi PDF Parametrization)
   */
-  double pitd_texp_sigma_n(int n, int trunc, double a, double b, double nu, int z)
+  double pitd_texp_sigma_n(int n, int trunc, double a, double b, double nu, int z, int dirac)
   {
     double sum(0.0);
     for ( int j = 0; j <= n; j++ )
       {
 	for ( int k = 0; k <= trunc; k++ )
 	  {
-	    sum += (pow(-1,k)/gsl_sf_fact(2*k))*texp_cn(2*k,z)*
+	    sum += (pow(-1,k)/gsl_sf_fact(2*k))*texp_cn(2*k,z,dirac)*
 	      coeffJacobi(n,j,a,b)*betaFn(a+2*k+j+1,b+1)*pow(nu,2*k);
 	  }
       }
@@ -269,14 +284,14 @@ namespace PITD
   /*
     Support for Taylor expansion of Imag(pITD->PDF Kernel)*(Jacobi PDF Parametrization)
   */
-  double pitd_texp_eta_n(int n, int trunc, double a, double b, double nu, int z)
+  double pitd_texp_eta_n(int n, int trunc, double a, double b, double nu, int z, int dirac)
   {
     double sum(0.0);
     for ( int j = 0; j <= n; j++ )
       {
 	for ( int k = 0; k <= trunc; k++ )
 	  {
-	    sum += (pow(-1,k)/gsl_sf_fact(2*k+1))*texp_cn(2*k+1,z)*
+	    sum += (pow(-1,k)/gsl_sf_fact(2*k+1))*texp_cn(2*k+1,z,dirac)*
 	      coeffJacobi(n,j,a,b)*betaFn(a+2*k+j+2,b+1)*pow(nu,2*k+1);
 	  }
       }

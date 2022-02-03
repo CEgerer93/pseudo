@@ -15,7 +15,7 @@ namespace VarPro
   /*
     Populate the non-linear basis of functions
   */
-  void varPro::makeBasis(double a, double b, std::vector<std::pair<int, double>> &nuz)
+  void varPro::makeBasis(int dirac, double a, double b, std::vector<std::pair<int, double>> &nuz)
   {
     int l;
     for ( l = 0; l < numCorrections; l++ )
@@ -30,10 +30,10 @@ namespace VarPro
 	      {
 		if ( pdfType == 0 )
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
-				 pitd_texp_sigma_n(l, 75, a, b, v->second, v->first) );
+				 pitd_texp_sigma_n(l, 75, a, b, v->second, v->first, dirac) );
 		if ( pdfType == 1 )
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),
-				 pitd_texp_eta_n(l, 75, a, b, v->second, v->first) );
+				 pitd_texp_eta_n(l, 75, a, b, v->second, v->first, dirac) );
 	      }
 	    /*
 	      (a/z)^2 corrections : \sum from l = 1 of pitd_texp_sigma_n_treelevel

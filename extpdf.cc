@@ -55,6 +55,9 @@
 using namespace PITD;
 using namespace VarPro;
 
+// Gamma matrix of insertion - in Chroma integer notation
+int dirac;
+
 // Default values of p & z to cut on
 int zmin,zmax,pmin,pmax;
 int nParams, nParamsLT, nParamsAZ, nParamsT4, nParamsT6, pdfType; // Determine pdf to fit & # params
@@ -182,7 +185,7 @@ double chi2Func(const gsl_vector * x, void *data)
 #ifdef VARPRO
   varPro VP(nParamsLT, nParamsAZ, nParamsT4, nParamsT6, nuz.size(), pdfType);
 
-  VP.makeBasis(dumA, dumB, nuz);
+  VP.makeBasis(dirac, dumA, dumB, nuz);
   VP.makeY(dataVec, invCov, pdfp);
   VP.makePhi(invCov, pdfp);
   VP.getInvPhi(); // compute inverse of Phi matrix
@@ -263,9 +266,9 @@ double chi2Func(const gsl_vector * x, void *data)
 int main( int argc, char *argv[] )
 {
   
-  if ( argc != 15 )
+  if ( argc != 16 )
     {
-      std::cout << "Usage: $0 <PDF (0 [QVAL] -or- 1 [QPLUS])> <lt n-jacobi> <az n-jacobi> <Twist-4 n-jacobi> <Twist-6 n-jacobi> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin cut> <zmax cut> <pmin cut> <pmax cut>" << std::endl;
+      std::cout << "Usage: $0 <PDF (0 [QVAL] -or- 1 [QPLUS])> <lt n-jacobi> <az n-jacobi> <Twist-4 n-jacobi> <Twist-6 n-jacobi> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin cut> <zmax cut> <pmin cut> <pmax cut> <Dirac matrix of insertion - Chroma int notation>" << std::endl;
       exit(1);
     }
   
@@ -289,11 +292,12 @@ int main( int argc, char *argv[] )
   ss << argv[7];  ss >> matelemType;   ss.clear(); ss.str(std::string());
   ss << argv[8];  ss >> gauge_configs; ss.clear(); ss.str(std::string());
   ss << argv[9];  ss >> jkStart;       ss.clear(); ss.str(std::string());
-  ss << argv[10];  ss >> jkEnd;         ss.clear(); ss.str(std::string());
+  ss << argv[10];  ss >> jkEnd;        ss.clear(); ss.str(std::string());
   ss << argv[11]; ss >> zmin;          ss.clear(); ss.str(std::string());
   ss << argv[12]; ss >> zmax;          ss.clear(); ss.str(std::string());
   ss << argv[13]; ss >> pmin;          ss.clear(); ss.str(std::string());
   ss << argv[14]; ss >> pmax;          ss.clear(); ss.str(std::string());
+  ss << argv[15]; ss >> dirac;         ss.clear(); ss.str(std::string());
 
   /*
     Require minimally nParamsLT >= 1
@@ -545,7 +549,7 @@ int main( int argc, char *argv[] )
 	With optimal {alpha,beta}, make one last varPro instance and determine solution vector of constants
       */
       varPro solution(nParamsLT, nParamsAZ, nParamsT4, nParamsT6, nuzJK.size(), pdfType);
-      solution.makeBasis(gsl_vector_get(fminBest,0),
+      solution.makeBasis(dirac, gsl_vector_get(fminBest,0),
 			 gsl_vector_get(fminBest,1),nuzJK);
       if ( pdfType == 0 )
 	{
