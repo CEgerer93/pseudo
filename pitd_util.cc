@@ -392,7 +392,7 @@ namespace PITD
     READER FOR PASSED H5 FILES
   */
   void H5Read(char *inH5, reducedPITD *dat, int gauge_configs, int zmin, int zmax, int pmin,
-	      int pmax, std::string dTypeName)
+	      int pmax, std::string dTypeName, int dirac)
   {
     /*
     OPEN THE H5 FILE CONTAINING ENSEM/JACK RESULTS OF pPDF
@@ -408,13 +408,32 @@ namespace PITD
     const char * DATASET = &dTypeName[0];
 
     // Access the first group entry within root - i.e. the current
-    hid_t h5Current = H5Gopen(h5File, "/b_b0xDA__J0_A1pP", H5P_DEFAULT);
+    std::string root;
+    if ( dirac == 8 )
+      root = "/b_b0xDA__J0_A1pP";
+    else if ( dirac == 11 )
+      root = "/a_a1xDA__J1_T1pM";
+    else {
+      std::cerr << "Insertion Gamma = " << dirac << " not supported";
+      exit(4);
+    }
+    
+    hid_t h5Current = H5Gopen(h5File, &root[0], H5P_DEFAULT);
+    // hid_t h5Current = H5Gopen(h5File, "/b_b0xDA__J0_A1pP", H5P_DEFAULT);
 
     // Other group headings w/in h5 file
-    const char * const momenta[] = {"pz0","pz1","pz2","pz3","pz4","pz5","pz6"};
     const char * const comp[] = {"Re", "Im"}; // {"1","2"};
+#ifdef OLD_PITD_H5_LOOKUP
+    const char * const momenta[] = {"pz0","pz1","pz2","pz3","pz4","pz5","pz6"};
     const char * const zsep[] = {"zsep0","zsep1","zsep2","zsep3","zsep4","zsep5","zsep6","zsep7","zsep8",
 				 "zsep9","zsep10","zsep11","zsep12","zsep13","zsep14","zsep15","zsep16"};
+#else
+    const char * const momenta[] = {"pf000_pi000","pf001_pi001","pf002_pi002",
+				    "pf003_pi003","pf004_pi004","pf005_pi005",
+				    "pf006_pi006"};
+    const char * const zsep[] = {"zsep000","zsep001","zsep002","zsep003","zsep004",
+				 "zsep005","zsep006","zsep007","zsep008"};
+#endif
 
 
     // Iterator through stored displacements
@@ -482,7 +501,7 @@ namespace PITD
 		hid_t h5Comp = H5Gopen(h5Jack,comp[c], H5P_DEFAULT);
 		
 
-		std::cout << "/b_b0xDA__J0_A1pP/" << zsep[z] << "/" << momenta[m]
+		std::cout << root << "/" << zsep[z] << "/" << momenta[m]
 			  << "jack/" << comp[c] << "/" << dTypeName << std::endl;
 		
 		// // Get the zsep handle
@@ -574,7 +593,7 @@ namespace PITD
     WRITER FOR MAKING NEW H5 FILES - E.G. EVOLVED/MATCHED DATASETS
   */
   void H5Write(char *outH5, reducedPITD *dat, int gauge_configs, int zmin, int zmax, int pmin,
-	       int pmax, std::string dTypeName)
+	       int pmax, std::string dTypeName, int dirac)
   {
     /*
       OPEN THE H5 FILE FOR WRITING
@@ -590,15 +609,34 @@ namespace PITD
     const char * DATASET = &dTypeName[0];
 
     // Make the first group entry within root - i.e. the current
-    hid_t h5Current = H5Gcreate(h5File, "/b_b0xDA__J0_A1pP", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    std::string root;
+    if ( dirac == 8 )
+      root = "/b_b0xDA__J0_A1pP";
+    else if ( dirac == 11 )
+      root = "/a_a1xDA__J1_T1pM";
+    else {
+      std::cerr << "Insertion Gamma = " << dirac << " not supported";
+      exit(4);
+    }
+
+    hid_t h5Current = H5Gcreate(h5File, &root[0], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    // hid_t h5Current = H5Gcreate(h5File, "/b_b0xDA__J0_A1pP", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
     
     // Other group headings w/in h5 file
-    const char * const momenta[] = {"pz0","pz1","pz2","pz3","pz4","pz5","pz6"};
     const char * const comp[] = {"Re", "Im"}; // {"1","2"};
+#ifdef OLD_PITD_H5_LOOKUP
+    const char * const momenta[] = {"pz0","pz1","pz2","pz3","pz4","pz5","pz6"};
     const char * const zsep[] = {"zsep0","zsep1","zsep2","zsep3","zsep4","zsep5","zsep6","zsep7","zsep8",
   				 "zsep9","zsep10","zsep11","zsep12","zsep13","zsep14","zsep15","zsep16"};
     // const char * const zsep[] = {"0","1","2","3","4","5","6","7","8",
     // 				 "9","10","11","12","13","14","15","16"};
+#else
+    const char * const momenta[] = {"pf000_pi000","pf001_pi001","pf002_pi002",
+				    "pf003_pi003","pf004_pi004","pf005_pi005",
+				    "pf006_pi006"};
+    const char * const zsep[] = {"zsep000","zsep001","zsep002","zsep003","zsep004",
+				 "zsep005","zsep006","zsep007","zsep008"};
+#endif
 
 
     // Iterator through displacements to store

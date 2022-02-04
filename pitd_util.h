@@ -149,14 +149,14 @@ namespace PITD
     READER FOR PASSED H5 FILES
   */
   void H5Read(char *inH5, reducedPITD *dat, int gauge_configs, int zmin, int zmax, int pmin,
-	      int pmax, std::string dTypeName);
+	      int pmax, std::string dTypeName, int dirac);
 
   
   /*
     WRITER FOR MAKING NEW H5 FILES - E.G. EVOLVED/MATCHED DATASETS
   */
   void H5Write(char *outH5, reducedPITD *dat, int gauge_configs, int zmin, int zmax, int pmin,
-	       int pmax, std::string dTypeName);
+	       int pmax, std::string dTypeName, int dirac);
 
   void printVec(gsl_vector *g);
 

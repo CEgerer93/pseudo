@@ -34,11 +34,11 @@ using namespace PITD;
 struct convolParams_t
 {
   double nu, matelem;
-  int z, comp;
+  int z, comp, dirac;
   polyFitParams_t p;
   // Constructor with initializer list
-  convolParams_t(polyFitParams_t _p, double _n, double _m, int _z, int _c) : p{_p}, nu(_n), matelem(_m),
-									     z(_z), comp(_c) {}
+  convolParams_t(polyFitParams_t _p, double _n, double _m, int _z, int _c, int _d) : p{_p}, nu(_n), matelem(_m),
+										     z(_z), comp(_c), dirac(_d) {}
 };
 
 // Convolve DGLAP kernel w/ polynomial fit of pITD
@@ -51,6 +51,7 @@ double polyFitDGLAPConvo(double u, void * p)
   int z                   = (cp->z);
   polyFitParams_t polyfit = (cp->p);
   int comp                = (cp->comp);
+  int dirac               = (cp->dirac);
 
   // Track the value of polynomial fits evaluated for u != 1 and u = 1
   double polyFit, polyFitUnity;
@@ -74,8 +75,12 @@ double polyFitDGLAPConvo(double u, void * p)
   */
   if ( u == 1 )
     return 0;
-  else
-    return ((1+pow(u,2))/(1-u))*log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) ) *(polyFit - polyFitUnity);
+  else {
+    if ( dirac == 8 )
+      return ((1+pow(u,2))/(1-u))*log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) ) *(polyFit - polyFitUnity);
+    if ( dirac == 11 )
+      return ((1+pow(u,2))/(1-u))*log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) ) *(polyFit - polyFitUnity);
+  }
 }
 
 // Convolve matching kernel w/ polynomial fit of pITD
@@ -88,6 +93,7 @@ double polyFitMatchingConvo(double u, void *p)
   int z                   = (cp->z);
   polyFitParams_t polyfit = (cp->p);
   int comp                = (cp->comp);
+  int dirac               = (cp->dirac);
 
   // Track the value of polynomial fits evaluated for u != 1 and u = 1
   double polyFit, polyFitUnity;
@@ -111,14 +117,18 @@ double polyFitMatchingConvo(double u, void *p)
   */
   if ( u == 1.0 )
     return 0;
-  else
-    return (((4*log(1-u))/(1-u))-2*(1-u))*(polyFit - polyFitUnity);
+  else {
+    if ( dirac == 8 )
+      return (((4*log(1-u))/(1-u))-2*(1-u))*(polyFit - polyFitUnity);
+    if ( dirac == 11 )
+      return (((4*log(1-u))/(1-u))-4*(1-u))*(polyFit - polyFitUnity);
+  }
 }
 
 
 
 // Perform numerical convolution of DGLAP kernel & reduced pITD data using "+" prescription
-double convolutionDGLAP(polyFitParams_t &poly, double nu, double matelem, int z, int comp)
+double convolutionDGLAP(polyFitParams_t &poly, double nu, double matelem, int z, int comp, int dirac)
 {
   /*
     Compute approximation to definite integral of form
@@ -130,7 +140,7 @@ double convolutionDGLAP(polyFitParams_t &poly, double nu, double matelem, int z,
   */
 
   // Collect and package the parameters to do the convolution
-  convolParams_t cParams(poly, nu, matelem, z, comp); 
+  convolParams_t cParams(poly, nu, matelem, z, comp, dirac);
 
   
   // Define the function to integrate
@@ -165,7 +175,7 @@ double convolutionDGLAP(polyFitParams_t &poly, double nu, double matelem, int z,
 }
 
 // Perform numerical convolution of MSbar matching kernel & reduced pITD data using "+" prescription
-double convolutionMATCH(polyFitParams_t &poly, double nu, double matelem, int z, int comp)
+double convolutionMATCH(polyFitParams_t &poly, double nu, double matelem, int z, int comp, int dirac)
 {
   /*
     Compute approximation to definite integral of form
@@ -177,7 +187,7 @@ double convolutionMATCH(polyFitParams_t &poly, double nu, double matelem, int z,
   */
 
   // Collect and package the parameters to do the convolution
-  convolParams_t cParams(poly, nu, matelem, z, comp);
+  convolParams_t cParams(poly, nu, matelem, z, comp, dirac);
  
 
   // Define the function to integrate
@@ -285,15 +295,15 @@ void rpitdWrite(std::ofstream &o, reducedPITD &r)
 int main( int argc, char *argv[] )
 {
 
-  if ( argc != 9 )
+  if ( argc != 10 )
     {
-      std::cout << "Usage: $0 <pITD poly fit txt> <h5 file> <matelemType> <gauge_configs> <zmin> <zmax> <pmin> <pmax>" << std::endl;
+      std::cout << "Usage: $0 <pITD poly fit txt> <h5 file> <matelemType> <gauge_configs> <zmin> <zmax> <pmin> <pmax> <Dirac matrix of insertion - Chroma int notation>" << std::endl;
       std::cout << "--- Note: should pass zmin = 0, pmin = 1, pmax = 6" << std::endl;
       exit(1);
     }
 
   std::string polyFit_pITD, matelemType;
-  int gauge_configs, zmin, zmax, pmin, pmax;
+  int gauge_configs, zmin, zmax, pmin, pmax, dirac;
   
 
   std::stringstream ss;
@@ -304,13 +314,22 @@ int main( int argc, char *argv[] )
   ss << argv[6]; ss >> zmax;          ss.clear(); ss.str(std::string());
   ss << argv[7]; ss >> pmin;          ss.clear(); ss.str(std::string());
   ss << argv[8]; ss >> pmax;          ss.clear(); ss.str(std::string());
+  ss << argv[9]; ss >> dirac;         ss.clear(); ss.str(std::string());
+
+
+  // Kill outright if dirac != 8,11
+  if ( dirac != 8 && dirac != 11 )
+    {
+      std::cerr << "Insertion Gamma = " << dirac << " not supported";
+      exit(4);
+    }
 
 
   reducedPITD rawPseudo(gauge_configs);
   /*
     ACCESS FULL DATASET OF FITTED IOFFE-TIME PSEUDO-STRUCTURE FUNCTIONS
   */
-  H5Read(argv[2], &rawPseudo, gauge_configs, zmin, zmax, pmin, pmax, "pitd");
+  H5Read(argv[2], &rawPseudo, gauge_configs, zmin, zmax, pmin, pmax, "pitd", dirac);
 
   /*
     ACCESS THE Z^2 POLYNOMIAL FIT PARAMETERS FOR ALL JACKKNIFE SAMPLES
@@ -403,14 +422,14 @@ int main( int argc, char *argv[] )
 		      if ( comp == 0 )
 			{
 			  dglap.real( convolutionDGLAP(zi->second.polyR[ji], mi->second.IT,
-						       mi->second.mat[ji].real(), zi->first, 0) );
+						       mi->second.mat[ji].real(), zi->first, 0, dirac) );
 			  match.real( convolutionMATCH(zi->second.polyR[ji], mi->second.IT,
 						       mi->second.mat[ji].real(), zi->first, 0) );
 			}
 		      if ( comp == 1 )
 			{
 			  dglap.imag( convolutionDGLAP(zi->second.polyI[ji], mi->second.IT,
-						       mi->second.mat[ji].imag(), zi->first, 1) );
+						       mi->second.mat[ji].imag(), zi->first, 1, dirac) );
 			  match.imag( convolutionMATCH(zi->second.polyI[ji], mi->second.IT,
 						       mi->second.mat[ji].imag(), zi->first, 1) );
 			}
@@ -441,10 +460,14 @@ int main( int argc, char *argv[] )
 
   // Push the outRaw, evoKernel, matchingKernel, theITD to H5 files
   // reducedPITD *dummy = new reducedPITD(gauge_configs,znum,6);
-
-  std::string outevoh5 =  "b_b0xDA__J0_A1pP." + matelemType + ".EVO.h5";
-  std::string outmatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".MATCH.h5";
-  std::string outevomatchh5 = "b_b0xDA__J0_A1pP." + matelemType + ".EVO-MATCH.h5";
+  std::string redstarCurr;
+  if ( dirac == 8 )
+    redstarCurr = "b_b0xDA__J0_A1pP";
+  if ( dirac == 11 )
+    redstarCurr = "a_a1xDA__J1_T1pM";
+  std::string outevoh5 =  redstarCurr+"." + matelemType + ".EVO.h5";
+  std::string outmatchh5 = redstarCurr+"." + matelemType + ".MATCH.h5";
+  std::string outevomatchh5 = redstarCurr+"." + matelemType + ".EVO-MATCH.h5";
   char *evoKernelH5 = &outevoh5[0];
   char *matchingKernelH5 = &outmatchh5[0];
   char *theITDH5 = &outevomatchh5[0];
@@ -453,9 +476,9 @@ int main( int argc, char *argv[] )
   /*
     WRITE EVO,MATCH,EVO-MATCH DATA FOR EACH JACKKNIFE SAMPLE
   */
-  H5Write(evoKernelH5,&evoKernel,gauge_configs,zmin,zmax,pmin,pmax,"evoKernel");
-  H5Write(matchingKernelH5,&matchingKernel,gauge_configs,zmin,zmax,pmin,pmax,"matchingKernel");
-  H5Write(theITDH5,&theITD,gauge_configs,zmin,zmax,pmin,pmax,"itd");
+  H5Write(evoKernelH5,&evoKernel,gauge_configs,zmin,zmax,pmin,pmax,"evoKernel",dirac);
+  H5Write(matchingKernelH5,&matchingKernel,gauge_configs,zmin,zmax,pmin,pmax,"matchingKernel",dirac);
+  H5Write(theITDH5,&theITD,gauge_configs,zmin,zmax,pmin,pmax,"itd",dirac);
 
 
 

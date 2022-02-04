@@ -120,13 +120,13 @@ double chi2Func(const gsl_vector * x, void *data)
 int main( int argc, char *argv[] )
 {
 
-  if ( argc != 8 )
+  if ( argc != 9 )
     {
-      std::cout << "Usage: $0 <h5 file> <configs> <matelemType> <zmin> <zmax> <pmin> <pmax>" << std::endl;
+      std::cout << "Usage: $0 <h5 file> <configs> <matelemType> <zmin> <zmax> <pmin> <pmax> <Dirac matrix of insertion - Chroma int notation>" << std::endl;
       exit(1);
     }
 
-  int gauge_configs, zmin, zmax, pmin, pmax;
+  int gauge_configs, zmin, zmax, pmin, pmax, dirac;
   std::string matelemType;
 
   std::stringstream ss;
@@ -137,6 +137,15 @@ int main( int argc, char *argv[] )
   ss << argv[5]; ss >> zmax;          ss.clear(); ss.str(std::string());
   ss << argv[6]; ss >> pmin;          ss.clear(); ss.str(std::string());
   ss << argv[7]; ss >> pmax;          ss.clear(); ss.str(std::string());
+  ss << argv[8]; ss >> dirac;         ss.clear(); ss.str(std::string());
+
+  
+  // Kill outright if dirac != 8,11
+  if ( dirac != 8 && dirac != 11 )
+    {
+      std::cerr << "Insertion Gamma = " << dirac << " not supported";
+      exit(4);
+    }
 
 
 
@@ -149,7 +158,7 @@ int main( int argc, char *argv[] )
   reducedPITD rawPseudo(gauge_configs);
 
 
-  H5Read(argv[1], &rawPseudo, gauge_configs, zmin, zmax, pmin, pmax, "pitd");
+  H5Read(argv[1], &rawPseudo, gauge_configs, zmin, zmax, pmin, pmax, "pitd", dirac);
 
   // for ( int J = 0 ; J < gauge_configs; J++ )
   //   {
@@ -203,7 +212,11 @@ int main( int argc, char *argv[] )
 
   // Open an output file to hold fit parameters for each z^2
   std::ofstream OUT;
-  std::string output = "b_b0xDA__J0_A1pP."+matelemType+".POLYFIT.txt";
+  std::string output;
+  if ( dirac == 8 )
+    output = "b_b0xDA__J0_A1pP."+matelemType+".POLYFIT.txt";
+  if ( dirac == 11 )
+    output = "a_a1xDA__J1_T1pM."+matelemType+".POLYFIT.txt";
   OUT.open(output.c_str(), std::ofstream::app);
 
 

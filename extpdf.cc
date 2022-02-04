@@ -48,6 +48,7 @@
 #endif
 
 // Macros for maximum z and p in computed data
+#warning "***************DATMAXZ IS 16!***************"
 #define DATMAXZ 16
 #define DATMAXP 6
 
@@ -299,6 +300,19 @@ int main( int argc, char *argv[] )
   ss << argv[14]; ss >> pmax;          ss.clear(); ss.str(std::string());
   ss << argv[15]; ss >> dirac;         ss.clear(); ss.str(std::string());
 
+
+  // Kill outright if dirac != 8,11
+  if ( dirac != 8 && dirac != 11 )
+    {
+      std::cerr << "Insertion Gamma = " << dirac << " not supported";
+      exit(4);
+    }
+  std::string redstarCurr;
+  if ( dirac == 8 )
+    redstarCurr = "b_b0xDA__J0_A1pP";
+  if ( dirac == 11 )
+    redstarCurr = "a_a1xDA__J1_T1pM";
+
   /*
     Require minimally nParamsLT >= 1
   */
@@ -331,14 +345,14 @@ int main( int argc, char *argv[] )
   // Set an output file for jackknife fit results
 #ifdef UNCORRELATED
 #warning "   Performing an uncorrelated fit"
-  std::string output = "b_b0xDA__J0_A1pP."+matelemType+"_jack"+std::to_string(jkStart)+
+  std::string output = redstarCurr+"."+matelemType+"_jack"+std::to_string(jkStart)+
     "-"+std::to_string(jkEnd)+"."+std::to_string(nParams)+"-parameter_"+
     std::to_string(nParamsLT)+"lt_"+std::to_string(nParamsAZ)+"az_"+
     std::to_string(nParamsT4)+"t4_"+std::to_string(nParamsT6)+"t6_"+
     ".convolJ.uncorrelated";
 #else
 #warning "   Performing a correlated fit"
-  std::string output = "b_b0xDA__J0_A1pP."+matelemType+"_jack"+std::to_string(jkStart)+
+  std::string output = redstarCurr+"."+matelemType+"_jack"+std::to_string(jkStart)+
     "-"+std::to_string(jkEnd)+"."+std::to_string(nParams)+"-parameter_"+
     std::to_string(nParamsLT)+"lt_"+std::to_string(nParamsAZ)+"az_"+
     std::to_string(nParamsT4)+"t4_"+std::to_string(nParamsT6)+"t6_"+
@@ -356,10 +370,10 @@ int main( int argc, char *argv[] )
 
   // Read from H5 file (all z's & p's)
 #ifdef CONVOLC
-  H5Read(argv[6],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"itd"); // pitd
+  H5Read(argv[6],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"itd",dirac); // pitd
 #endif
 #ifdef CONVOLK
-  H5Read(argv[6],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"pitd");
+  H5Read(argv[6],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"pitd",dirac);
 #endif
   
 
@@ -680,7 +694,7 @@ int main( int argc, char *argv[] )
   /*
     Now that pitdPDFFit has been populated, used H5Write to write to h5 file
   */  
-  std::string out_pitdPDFFit = "b_b0xDA__J0_A1pP." + matelemType + ".pITD-PDF-Fit.h5";
+  std::string out_pitdPDFFit = redstarCurr +"." + matelemType + ".pITD-PDF-Fit.h5";
   char * out_pitdPDFFit_h5 = &out_pitdPDFFit[0];
   H5Write(out_pitdPDFFit_h5, &pitdPDFFit, gauge_configs, zmin, zmax, pmin, pmax, "pitd_PDF_Fit");
 #endif
