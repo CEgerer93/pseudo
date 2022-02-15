@@ -19,12 +19,12 @@
 /*
  * Define some global constants
  */
-const double Cf = 4.0/3.0;
-const double hbarc = 0.1973269804;       // GeV * fm
-const double aLat = 0.094; // 0.0749;                // fm
-const double muRenorm = 2.0; //4.0;             // GeV
-const double MU = (aLat*muRenorm)/hbarc; // fm^-1
-const double alphaS = 0.303; // 0.2;
+const double Cf       = 4.0/3.0;
+const double hbarc    = 0.1973269804;       // GeV * fm
+const double aLat     = ALAT; //0.094; // 0.0749;                // fm
+const double muRenorm = INPUTSCALE; //2.0; //4.0;             // GeV
+const double MU       = (aLat*muRenorm)/hbarc; // fm^-1
+const double alphaS   = ALPHAS; //0.303; // 0.2;
 
 
 namespace PITD
@@ -40,10 +40,12 @@ namespace PITD
     double a, b, c;
     double func(bool reality, double ioffe) // return (Re/Im) polynomial evaluated at ioffe
     {
+      double ret(0.0);
       if ( reality )
-	return 1.0 + a*pow(ioffe, 2) + b*pow(ioffe, 4) + c*pow(ioffe,6); // + d*pow(ioffe,8);
+	ret = 1.0 + a*pow(ioffe, 2) + b*pow(ioffe, 4) + c*pow(ioffe,6); // + d*pow(ioffe,8);
       if ( !reality )
-	return a*pow(ioffe, 1) + b*pow(ioffe, 3) + c*pow(ioffe, 5); // +d*pow(ioffe, 7);
+	ret = a*pow(ioffe, 1) + b*pow(ioffe, 3) + c*pow(ioffe, 5); // +d*pow(ioffe, 7);
+      return ret;
     }
     // Def/Param constructors, with initializer lists
   polyFitParams_t() : a(0.0), b(0.0), c(0.0) {}

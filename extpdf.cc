@@ -42,15 +42,15 @@
 #include "varpro.h"
 #include "pdf_fit_util.h"
 
-// If we are building st. alpha_s is not a fitted parameter, then set a value here
-#ifndef FITALPHAS
-#define alphaS 0.303
-#endif
+// // If we are building st. alpha_s is not a fitted parameter, then set a value here
+// #ifndef FITALPHAS
+// #define alphaS 0.303
+// #endif
 
 // Macros for maximum z and p in computed data
-#warning "***************DATMAXZ IS 16!***************"
-#define DATMAXZ 16
-#define DATMAXP 6
+#warning "Setting DATMAXZ & DATMAXP from Makefile!***************"
+#define DATMAXZ MAXZ
+#define DATMAXP MAXP
 
 
 using namespace PITD;
@@ -266,7 +266,7 @@ double chi2Func(const gsl_vector * x, void *data)
 
 int main( int argc, char *argv[] )
 {
-  
+
   if ( argc != 16 )
     {
       std::cout << "Usage: $0 <PDF (0 [QVAL] -or- 1 [QPLUS])> <lt n-jacobi> <az n-jacobi> <Twist-4 n-jacobi> <Twist-6 n-jacobi> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin cut> <zmax cut> <pmin cut> <pmax cut> <Dirac matrix of insertion - Chroma int notation>" << std::endl;
@@ -359,7 +359,7 @@ int main( int argc, char *argv[] )
     ".convolJ.correlated";
 #endif
   output += ".pmin"+std::to_string(pmin)+"_pmax"+std::to_string(pmax)+
-    "_zmin"+std::to_string(zmin)+"_zmax"+std::to_string(zmax)+".txt";
+    "_zmin"+std::to_string(zmin)+"_zmax"+std::to_string(zmax)+".alphas_"+std::to_string(alphaS)+".txt";
   std::ofstream OUT(output.c_str(), std::ofstream::in | std::ofstream::app );
   
 

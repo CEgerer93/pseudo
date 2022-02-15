@@ -502,7 +502,7 @@ namespace PITD
 		
 
 		std::cout << root << "/" << zsep[z] << "/" << momenta[m]
-			  << "jack/" << comp[c] << "/" << dTypeName << std::endl;
+			  << "/jack/" << comp[c] << "/" << dTypeName << std::endl;
 		
 		// // Get the zsep handle
 		// hid_t h5Zsep = H5Gopen(h5Comp, zsep[z], H5P_DEFAULT);

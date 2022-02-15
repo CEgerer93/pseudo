@@ -162,10 +162,12 @@ namespace PITD
   {
     double si = gsl_sf_Si(u); // Grab the sine-integral
     double ci = gsl_sf_Ci(u); // Grab the cosine-integral
+    double ret(0.0);
     if ( pdfType == 0 )
-      return (1-cos(u))/pow(u,2)+2*sin(u)*((u*si-1)/u)+((3-4*M_EULER)/2)*cos(u)+2*cos(u)*(ci-log(u));
+      ret = (1-cos(u))/pow(u,2)+2*sin(u)*((u*si-1)/u)+((3-4*M_EULER)/2)*cos(u)+2*cos(u)*(ci-log(u));
     if ( pdfType == 1 )
-      return -1.0*((sin(u)+u)/pow(u,2))+((3-4*M_EULER)/2)*sin(u)+2*cos(u)*((1-u*si)/u)+2*sin(u)*(ci-log(u));
+      ret = -1.0*((sin(u)+u)/pow(u,2))+((3-4*M_EULER)/2)*sin(u)+2*cos(u)*((1-u*si)/u)+2*sin(u)*(ci-log(u));
+    return ret;
   }
 
   /*
@@ -177,10 +179,12 @@ namespace PITD
     pfq_t HypGeom = GenHypGeomEval(u);
     double reArg = cos(u)*HypGeom.real-sin(u)*HypGeom.imag; // hand determine real(phase*hypgeom)
     double imArg = cos(u)*HypGeom.imag+sin(u)*HypGeom.real; // hand determine imag(phase*hypgeom)
+    double ret(0.0);
     if ( pdfType == 0 )
-      return -4*u*(imArg)-((2-(2+pow(u,2))*cos(u))/pow(u,2));
+      ret = -4*u*(imArg)-((2-(2+pow(u,2))*cos(u))/pow(u,2));
     if ( pdfType == 1 )
-      return 4*u*(reArg)+sin(u)*(1+2/pow(u,2))-2/u;
+      ret = 4*u*(reArg)+sin(u)*(1+2/pow(u,2))-2/u;
+    return ret;
   }
 
   /*

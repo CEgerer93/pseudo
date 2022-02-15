@@ -73,13 +73,15 @@ double polyFitDGLAPConvo(double u, void * p)
   /*
     Return PLUS-PRESCRIPTION of Altarelli-Parisi kernel multiplied by polynomial fit of reduced pITD
   */
+  double ret(0.0);
   if ( u == 1 )
     return 0;
   else {
     if ( dirac == 8 )
-      return ((1+pow(u,2))/(1-u))*log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) ) *(polyFit - polyFitUnity);
+      ret = ((1+pow(u,2))/(1-u))*log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) ) *(polyFit - polyFitUnity);
     if ( dirac == 11 )
-      return ((1+pow(u,2))/(1-u))*log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) ) *(polyFit - polyFitUnity);
+      ret = ((1+pow(u,2))/(1-u))*log( (exp(2*M_EULER+1)/4)*pow(MU*z,2) ) *(polyFit - polyFitUnity);
+    return ret;
   }
 }
 
@@ -115,13 +117,15 @@ double polyFitMatchingConvo(double u, void *p)
   /*
     Return PLUS-PRESCRIPTION of MSbar matching kernel multiplied by polynomial fit of reduced pITD
   */
+  double ret(0.0);
   if ( u == 1.0 )
     return 0;
   else {
     if ( dirac == 8 )
-      return (((4*log(1-u))/(1-u))-2*(1-u))*(polyFit - polyFitUnity);
+      ret = (((4*log(1-u))/(1-u))-2*(1-u))*(polyFit - polyFitUnity);
     if ( dirac == 11 )
-      return (((4*log(1-u))/(1-u))-4*(1-u))*(polyFit - polyFitUnity);
+      ret = (((4*log(1-u))/(1-u))-4*(1-u))*(polyFit - polyFitUnity);
+    return ret;
   }
 }
 
@@ -424,14 +428,14 @@ int main( int argc, char *argv[] )
 			  dglap.real( convolutionDGLAP(zi->second.polyR[ji], mi->second.IT,
 						       mi->second.mat[ji].real(), zi->first, 0, dirac) );
 			  match.real( convolutionMATCH(zi->second.polyR[ji], mi->second.IT,
-						       mi->second.mat[ji].real(), zi->first, 0) );
+						       mi->second.mat[ji].real(), zi->first, 0, dirac) );
 			}
 		      if ( comp == 1 )
 			{
 			  dglap.imag( convolutionDGLAP(zi->second.polyI[ji], mi->second.IT,
 						       mi->second.mat[ji].imag(), zi->first, 1, dirac) );
 			  match.imag( convolutionMATCH(zi->second.polyI[ji], mi->second.IT,
-						       mi->second.mat[ji].imag(), zi->first, 1) );
+						       mi->second.mat[ji].imag(), zi->first, 1, dirac) );
 			}
 		    } // comp
 		  
@@ -465,9 +469,9 @@ int main( int argc, char *argv[] )
     redstarCurr = "b_b0xDA__J0_A1pP";
   if ( dirac == 11 )
     redstarCurr = "a_a1xDA__J1_T1pM";
-  std::string outevoh5 =  redstarCurr+"." + matelemType + ".EVO.h5";
-  std::string outmatchh5 = redstarCurr+"." + matelemType + ".MATCH.h5";
-  std::string outevomatchh5 = redstarCurr+"." + matelemType + ".EVO-MATCH.h5";
+  std::string outevoh5 =  redstarCurr+"." + matelemType + ".EVO.alphas_" + std::to_string(alphaS) +".h5";
+  std::string outmatchh5 = redstarCurr+"." + matelemType + ".MATCH.alphas_" + std::to_string(alphaS) +".h5";
+  std::string outevomatchh5 = redstarCurr+"." + matelemType + ".EVO-MATCH.alphas_" + std::to_string(alphaS) +".h5";
   char *evoKernelH5 = &outevoh5[0];
   char *matchingKernelH5 = &outmatchh5[0];
   char *theITDH5 = &outevomatchh5[0];
