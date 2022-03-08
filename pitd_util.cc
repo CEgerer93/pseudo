@@ -326,6 +326,31 @@ namespace PITD
   }
 
   /*
+    Modify full data covariance to include a systematic error (see header file for an example)
+  */
+  void reducedPITD::addSystematicCov(reducedPITD *sysDist)
+  {
+    for ( std::map<int, zvals>::iterator di = sysDist->data.disps.begin(); di != sysDist->data.disps.end(); ++di )
+      {
+	for ( std::map<std::string, momVals>::const_iterator mi = di->second.moms.begin();
+	      mi != di->second.moms.end(); mi++ )
+	  {
+	    // Get the Ith index -- need this to know which diagonal entry of data covariance we will modify
+	    int I = std::distance<std::map<std::string, momVals>::const_iterator>
+	      (di->second.moms.begin(), mi) + (di->first-zminCut)*di->second.moms.size();
+
+	    // Get avgmatelem from unmodified h5  &  subtract avgmatelem from sysDist h5
+	    std::complex<double> diff = data.disps[di->first].moms[mi->first].matAvg - mi->second.matAvg;
+#if 1	    
+	    // Square the difference and add to diagonal of covariance matrix
+	    gsl_matrix_set(data.covR,I,I,gsl_matrix_get(data.covR,I,I)+pow(diff.real(),2));
+	    gsl_matrix_set(data.covI,I,I,gsl_matrix_get(data.covI,I,I)+pow(diff.imag(),2));
+#endif	    
+	  } // mi
+      } // di
+  } // addSystematicCov
+
+  /*
     Cut on Z's and P's to exclude from fit
   */
   void reducedPITD::cutOnPZ(int minz, int maxz, int minp, int maxp)

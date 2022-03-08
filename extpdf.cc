@@ -268,9 +268,9 @@ double chi2Func(const gsl_vector * x, void *data)
 int main( int argc, char *argv[] )
 {
 
-  if ( argc != 16 )
+  if ( argc != 16 && argc != 17 )
     {
-      std::cout << "Usage: $0 <PDF (0 [QVAL] -or- 1 [QPLUS])> <lt n-jacobi> <az n-jacobi> <Twist-4 n-jacobi> <Twist-6 n-jacobi> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin cut> <zmax cut> <pmin cut> <pmax cut> <Dirac matrix of insertion - Chroma int notation>" << std::endl;
+      std::cout << "Usage: $0 <PDF (0 [QVAL] -or- 1 [QPLUS])> <lt n-jacobi> <az n-jacobi> <Twist-4 n-jacobi> <Twist-6 n-jacobi> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin cut> <zmax cut> <pmin cut> <pmax cut> <Dirac matrix of insertion - Chroma int notation> <h5 for systematic error>" << std::endl;
       exit(1);
     }
   
@@ -368,20 +368,36 @@ int main( int argc, char *argv[] )
     INITIALIZE STRUCTURE FOR DISTRIBUTION TO FIT (WHERE DISTRIBUTION IS EITHER ITD OR pITD)
   */
   reducedPITD distribution = reducedPITD(gauge_configs, zmin, zmax, pmin, pmax);
+#warning "Cond"
+  reducedPITD distributionSysErr = reducedPITD(gauge_configs, zmin, zmax, pmin, pmax);
 
   // Read from H5 file (all z's & p's)
 #ifdef CONVOLC
   H5Read(argv[6],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"itd",dirac); // pitd
+  try {
+    H5Read(argv[16],&distributionSysErr,gauge_configs,zmin,zmax,pmin,pmax,"itd",dirac); // pitd
+  } catch (std::string &e) {
+    std::cout << "H5 to estimate sys. error not set ... skipping..." << std::endl;
+  }   
 #endif
 #ifdef CONVOLK
   H5Read(argv[6],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"pitd",dirac);
+  try {
+    H5Read(argv[16],&distributionSysErr,gauge_configs,zmin,zmax,pmin,pmax,"pitd",dirac);
+  } catch (std::string &e) {
+    std::cout << "H5 to estimate sys. error not set ... skipping..." << std::endl;
+  }
 #endif
   
 
   /*
     Determine full data covariance
   */
-  distribution.calcCov();    std::cout << "Computed the full data covariance" << std::endl;
+  distribution.calcCov();
+  std::cout << "Computed the full data covariance" << std::endl;
+  distribution.addSystematicCov(&distributionSysErr);
+  std::cout << "Added sys error of matelem to diagonal of data covariance" << std::endl;
+
   // distribution.cutOnPZ(zmin,zmax,pmin,pmax);
   distribution.calcInvCov(); std::cout << "Computed the inverse of full data covariance" << std::endl;
   std::cout << "Cut on {zmin, zmax} = { " << zmin << " , " << zmax << " }  &  {pmin, pmax} = { "

@@ -132,6 +132,10 @@ namespace PITD
     void calcCov();
     void calcInvCov();
 
+    // Modify full data covariance to include a systematic error
+    // ---> ex) squared diff. btwn. matelem fits w/ diff. Tmin added to diagonal of data covariance
+    void addSystematicCov(reducedPITD *sysDist);
+
     // Cut on Z's and P's to exclude from fit
     void cutOnPZ(int minz, int maxz, int minp, int maxp);
 
