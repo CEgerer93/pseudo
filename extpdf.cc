@@ -249,6 +249,7 @@ double chi2Func(const gsl_vector * x, void *data)
   // Log-normal on alpha, beta
   chi2 += (pow( (log(dumA + 1) - nlPriors[0]), 2))/pow(nlWidths[0],2)
     + (pow( (log(dumB + 0) - nlPriors[1]), 2))/pow(nlWidths[1],2);
+    // + 2*log((dumA+1)*nlWidths[0]*sqrt(2*M_PI)) + 2*log((dumB+0)*nlWidths[1]*sqrt(2*M_PI));
   // A const piece remains from VarPro w/ priors
   for ( int c = 0; c < VP.numCorrections; c++ )
     {
