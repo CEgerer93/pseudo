@@ -68,24 +68,6 @@ std::vector<double> nlPriors {0.0, 3.0}; // {alpha,beta}
 std::vector<double> nlWidths {0.25, 0.5}; // 0.25, 0.25
 
 
-// std::vector<double> nl_mu {0.0, 3.0};
-// std::vector<double> nl_sig {0.25, 0.5};
-// std::vector<double> nlPriors(2);
-// std::vector<double> nlWidths(2);
-
-
-// nlPriors[0] = log( pow( nl_mu[0], 2) / sqrt( pow(nl_mu[0], 2) + pow(nl_sig[0], 2) ) );
-// nlPriors[1] = log( pow( nl_mu[1], 2) / sqrt( pow(nl_mu[1], 2) + pow(nl_sig[1], 2) ) );
-// nlWidths[0] = log( 1 + ( pow(nl_sig[0], 2) / pow(nl_mu[0], 2) ) );
-// nlWidths[1] = log( 1 + ( pow(nl_sig[1], 2) / pow(nl_mu[1], 2) ) );
-
-
-// std::vector<double> nlPriors { log( pow( 0.1, 2) / sqrt( pow(0.1, 2) + pow(0.25, 2) ) ), log( pow( 3, 2) / sqrt( pow(3, 2) + pow(0.5, 2) ) )};
-// std::vector<double> nlWidths { log( 1 + ( pow(0.25, 2) / pow(0.1, 2) ) ), log( 1 + ( pow(0.5, 2) / pow(3.0, 2) ))};
-
-
-
-
 /*
   MULTIDIMENSIONAL MINIMIZATION - CHI2 
   MINIMIZE LEAST-SQUARES BETWEEN DATA AND NUMERICALLY INTEGRATED MATCHING KERNEL AND pITD
@@ -257,8 +239,10 @@ double chi2Func(const gsl_vector * x, void *data)
 	chi2 += pow(pdfp.prior[c],2)/pow(pdfp.width[c],2);
       if ( c >= VP.numLT && c < VP.numLT + VP.numAZ )
 	chi2 += pow(pdfp.az_prior[c-VP.numLT],2)/pow(pdfp.az_width[c-VP.numLT],2);
-      if ( c >= VP.numLT + VP.numAZ )
+      if ( c >= VP.numLT + VP.numAZ && c < VP.numLT + VP.numAZ + VP.numT4 )
 	chi2 += pow(pdfp.t4_prior[c-VP.numLT-VP.numAZ],2)/pow(pdfp.t4_width[c-VP.numLT-VP.numAZ],2);
+      if ( c >= VP.numLT + VP.numAZ + VP.numT4 )
+	chi2 += pow(pdfp.t6_prior[c-VP.numLT-VP.numAZ-VP.numT4],2)/pow(pdfp.t6_width[c-VP.numLT-VP.numAZ-VP.numT4],2);
     }
 #endif
   return chi2;
