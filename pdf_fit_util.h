@@ -87,9 +87,9 @@ struct pdfFitParams_t
   }
 
   // Write best fit values to file
-  void write(std::ofstream &os, double redChi2, gsl_vector *v)
+  void write(std::ofstream &os, double L2, double Chi2, double L2dof, double Chi2dof, gsl_vector *v)
   {
-    os << std::setprecision(10) << redChi2 << " ";
+    os << std::setprecision(10) << L2 << " " << Chi2 << " " << L2dof << " " << Chi2dof << " ";
     for ( auto p = pmap.begin(); p != pmap.end(); ++p )
       os << gsl_vector_get(v,p->first) << " ";
     os << "\n";

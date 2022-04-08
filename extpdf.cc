@@ -249,6 +249,62 @@ double chi2Func(const gsl_vector * x, void *data)
 }
 
 
+/*
+  CHI2FUNC above actually computes part of L^2 = -2Log( P[\theta|data,I] ) + C
+  (i.e. negative logarithm of posterior probability distribution P[\theta|data,I] )
+  needed to find most likely set of parameters \theta, given data and prior information 'I'
+
+  --> where most likely set of parameters is found by maximizing posterior distribution,
+      which is achieved numerically by minimizing L^2
+
+  --> but L^2 determination that is CHI2FUNC, is missing normalizations of prior distributions
+
+  --> SO, this function will determine correct L^2 and unconstrained \chi2
+*/
+std::vector<double> ell2Chi2(const double chi2FromFit, pdfFitParams_t * p, gsl_vector * bestParams)
+{
+  // vector to return true L^2 and unconstrained chi2
+  std::vector<double> LC(2,chi2FromFit); // w/ LC[0] = L^2  &  LC[1] = chi2
+  // Convenience
+  double alpha = gsl_vector_get(bestParams,0);
+  double beta  = gsl_vector_get(bestParams,1);
+
+
+  // Start by computing true L^2 by appending normalizations of prior dists. and prob. of data given params
+  LC[0] -= 2*( log(1.0/sqrt(2*M_PI)) + log(1.0/((alpha+1)*nlWidths[0]*sqrt(2*M_PI)))\
+	       + log(1.0/((beta-0)*nlWidths[1]*sqrt(2*M_PI))) );
+
+  // Next, remove prior infomation on \alpha, \beta from chi2
+  LC[1] -= ( pow( log(alpha+1)-nlPriors[0], 2)/pow(nlWidths[0], 2) + pow( log(beta-0)-nlPriors[1], 2)/pow(nlWidths[1], 2) );
+
+
+  // Arrive at final talley for L^2 and unconstrained chi2 by accounting for Gaussian priors of linear Jacobi coeffs.
+  int i;
+  for ( i = 2; i < p->lt_fitParams->size + 2; i++ )
+    {
+      LC[1] -= pow( gsl_vector_get(bestParams,i) - p->prior[i-2], 2)/pow( p->width[i-2], 2); // correct chi2
+      LC[0] -= 2*log(1.0/(sqrt(2*M_PI)*p->width[i-2]));                                      // compute L^2
+    }
+  for ( i = p->lt_fitParams->size + 2; i < p->lt_fitParams->size + p->az_fitParams->size + 2; i++ )
+    {
+      LC[1] -= pow( gsl_vector_get(bestParams,i) - p->az_prior[i-2], 2)/pow( p->az_width[i-2], 2); // correct chi2
+      LC[0] -= 2*log(1.0/(sqrt(2*M_PI)*p->az_width[i-2]));                                         // compute L^2
+    }
+  for ( i = p->lt_fitParams->size + p->az_fitParams->size + 2; i < p->lt_fitParams->size + p->az_fitParams->size + p->t4_fitParams->size + 2; i++ )
+    {
+      LC[1] -= pow( gsl_vector_get(bestParams,i) - p->t4_prior[i-2], 2)/pow( p->t4_width[i-2], 2); // correct chi2
+      LC[0] -= 2*log(1.0/(sqrt(2*M_PI)*p->t4_width[i-2]));                                         // compute L^2
+    }
+  for ( i = p->lt_fitParams->size + p->az_fitParams->size + p->t4_fitParams->size + 2; i < 2 + p->nParams; i++ )
+    {
+      LC[1] -= pow( gsl_vector_get(bestParams,i) - p->t6_prior[i-2], 2)/pow( p->t6_width[i-2], 2); // correct chi2
+      LC[0] -= 2*log(1.0/(sqrt(2*M_PI)*p->t6_width[i-2]));                                         // compute L^2
+    }
+
+  return LC;
+}
+
+
 int main( int argc, char *argv[] )
 {
 
@@ -553,11 +609,15 @@ int main( int argc, char *argv[] )
       double chiSq = gsl_multimin_fminimizer_minimum(fmin);
       // Determine the reduced chi2
       double reducedChiSq;
+      int dof;
+
       // [02/16/2021] Replace substraction of singular values, with datapts cut from fit
       if ( pdfType == 0 )
-	reducedChiSq = chiSq / (distribution.data.covR->size1 - nParams - distribution.data.svsFullR); 
+	dof = distribution.data.covR->size1 - nParams - distribution.data.svsFullR;
       if ( pdfType == 1 )
-	reducedChiSq = chiSq / (distribution.data.covI->size1 - nParams - distribution.data.svsFullI);
+	dof = distribution.data.covI->size1 - nParams - distribution.data.svsFullI;
+
+      reducedChiSq = chiSq / dof;
 
 
       /*
@@ -588,58 +648,21 @@ int main( int argc, char *argv[] )
       ///////////////////////////////////////////////////////////////////////////////////////////
 
 
+
+      // Now use dumPfp to determine the true L^2 and unconstrained chi2
+      std::vector<double> L2Chi2 = ell2Chi2(chiSq,dumPfp,bestFitParams);
+
       std::cout << " For jackknife sample J = " << itJ << ", Converged after " << k
-		<<" iterations, Optimal Chi2/dof = " << reducedChiSq << std::endl;
+		<<" iterations, Optimal [L2, Chi2, L2/dof, Chi2/dof] = "
+		<< L2Chi2[0] << " " << L2Chi2[1] << " " << L2Chi2[0]/dof << " " << L2Chi2[1]/dof
+		<< " [formerly = " << reducedChiSq << " ] " << std::endl;
       dumPfp->printBest(bestFitParams);
       
 
 
-
-      // // Pack the best fit values
-      // // (n.b. this is so functionality of pdfFitParams_t object can be used)
-      // pdfFitParams_t * best;
-      // switch (pdfType)
-      // 	{
-      // 	case 0:
-      // 	  switch (nParams)
-      // 	    {
-      // 	    case 2:
-      // 	      best = new pdfFitParams_t(false, gsl_vector_get(bestFitParams, 0),
-      // 					gsl_vector_get(bestFitParams, 1)); break;
-      // 	    case 3:
-      // 	      best = new pdfFitParams_t(false, gsl_vector_get(bestFitParams, 0),
-      // 					gsl_vector_get(bestFitParams, 1), 0.0, gsl_vector_get(bestFitParams, 2));
-      // 	      break;
-      // 	    case 4:
-      // 		best = new pdfFitParams_t(false, gsl_vector_get(bestFitParams, 0),
-      // 					  gsl_vector_get(bestFitParams, 1), gsl_vector_get(bestFitParams, 2),
-      // 					  gsl_vector_get(bestFitParams, 3)); break;
-      // 	    }
-      // 	  break; // case 0 pdfType
-      // 	case 1:
-      // 	  switch(nParams)
-      // 	    {
-      // 	    case 2:
-      // 	      best = new pdfFitParams_t(true, gsl_vector_get(bestFitParams, 1),
-      // 					gsl_vector_get(bestFitParams, 2)); break;
-      // 	    case 3:
-      // 	      best = new pdfFitParams_t(true, gsl_vector_get(bestFitParams, 1),
-      // 					gsl_vector_get(bestFitParams, 2), 0.0, gsl_vector_get(bestFitParams, 3));
-      // 	      break;
-      // 	    case 4:
-      // 	      best = new pdfFitParams_t(true, gsl_vector_get(bestFitParams, 1),
-      // 					gsl_vector_get(bestFitParams, 2), gsl_vector_get(bestFitParams, 3),
-      // 					gsl_vector_get(bestFitParams, 4)); break;
-      // 	    }
-      // 	  best->norm = gsl_vector_get(bestFitParams, 0);
-      // 	  break; // case 1 pdfType
-      // 	}
-
-      // fitResults[itJ] = *best;
-
       
       // Write the fit results to a file
-      dumPfp->write(OUT, reducedChiSq, bestFitParams);
+      dumPfp->write(OUT, L2Chi2[0], L2Chi2[1], L2Chi2[0]/dof, L2Chi2[1]/dof, bestFitParams);
       OUT.flush();
 
       // delete best;
