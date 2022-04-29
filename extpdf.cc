@@ -61,7 +61,7 @@ int dirac;
 
 // Default values of p & z to cut on
 int zmin,zmax,pmin,pmax;
-int nParams, nParamsLT, nParamsAZ, nParamsT4, nParamsT6, pdfType; // Determine pdf to fit & # params
+int nParams, nParamsLT, nParamsAZ, nParamsT4, nParamsT6, nParamsT8, nParamsT10, pdfType; // Determine pdf to fit & # params
 
 // Define non-linear priors and prior widths
 std::vector<double> nlPriors {0.0, 3.0}; // {alpha,beta}
@@ -90,6 +90,8 @@ double chi2Func(const gsl_vector * x, void *data)
   gsl_vector *dumAZFit = gsl_vector_alloc(nParamsAZ);
   gsl_vector *dumT4Fit = gsl_vector_alloc(nParamsT4);
   gsl_vector *dumT6Fit = gsl_vector_alloc(nParamsT6);
+  gsl_vector *dumT8Fit = gsl_vector_alloc(nParamsT8);
+  gsl_vector *dumT10Fit = gsl_vector_alloc(nParamsT10);
 #if 0
   switch(pdfType)
     {
@@ -103,7 +105,7 @@ double chi2Func(const gsl_vector * x, void *data)
     }
 #endif
   // Now set the pdf params within a pdfFitParams_t struct instance
-  pdfFitParams_t pdfp(pdfType, dumA, dumB, dumLTFit, dumAZFit, dumT4Fit, dumT6Fit);
+  pdfFitParams_t pdfp(pdfType, dumA, dumB, dumLTFit, dumAZFit, dumT4Fit, dumT6Fit, dumT8Fit, dumT10Fit);
   
 
   /*
@@ -166,7 +168,7 @@ double chi2Func(const gsl_vector * x, void *data)
 
 
 #ifdef VARPRO
-  varPro VP(nParamsLT, nParamsAZ, nParamsT4, nParamsT6, nuz.size(), pdfType);
+  varPro VP(nParamsLT, nParamsAZ, nParamsT4, nParamsT6, nParamsT8, nParamsT10, nuz.size(), pdfType);
 
   VP.makeBasis(dirac, dumA, dumB, nuz);
   VP.makeY(dataVec, invCov, pdfp);
@@ -179,9 +181,9 @@ double chi2Func(const gsl_vector * x, void *data)
   double varProSum(0.0);
 
   // Identity
-  gsl_matrix *id = gsl_matrix_alloc(nParamsLT+nParamsAZ+nParamsT4+nParamsT6, nParamsLT+nParamsAZ+nParamsT4+nParamsT6);
+  gsl_matrix *id = gsl_matrix_alloc(nParamsLT+nParamsAZ+nParamsT4+nParamsT6+nParamsT8+nParamsT10, nParamsLT+nParamsAZ+nParamsT4+nParamsT6+nParamsT8+nParamsT10);
   gsl_matrix_set_identity(id);
-  gsl_matrix *inner = gsl_matrix_calloc(nParamsLT+nParamsAZ+nParamsT4+nParamsT6, nParamsLT+nParamsAZ+nParamsT4+nParamsT6);
+  gsl_matrix *inner = gsl_matrix_calloc(nParamsLT+nParamsAZ+nParamsT4+nParamsT6+nParamsT8+nParamsT10, nParamsLT+nParamsAZ+nParamsT4+nParamsT6+nParamsT8+nParamsT10);
 
 
   /*
@@ -191,7 +193,7 @@ double chi2Func(const gsl_vector * x, void *data)
   gsl_matrix_memcpy(product, VP.invPhi);
 
   gsl_blas_dgemm(CblasTrans,CblasNoTrans,-1.0,VP.invPhi,id,2.0,product);
-  gsl_vector *rightMult = gsl_vector_alloc(nParamsLT+nParamsAZ+nParamsT4+nParamsT6);
+  gsl_vector *rightMult = gsl_vector_alloc(nParamsLT+nParamsAZ+nParamsT4+nParamsT6+nParamsT8+nParamsT10);
   gsl_blas_dgemv(CblasNoTrans,1.0,product,VP.Y,0.0,rightMult);
   gsl_blas_ddot(VP.Y,rightMult,&varProSum);
   varProSum *= -1;
@@ -241,8 +243,12 @@ double chi2Func(const gsl_vector * x, void *data)
 	chi2 += pow(pdfp.az_prior[c-VP.numLT],2)/pow(pdfp.az_width[c-VP.numLT],2);
       if ( c >= VP.numLT + VP.numAZ && c < VP.numLT + VP.numAZ + VP.numT4 )
 	chi2 += pow(pdfp.t4_prior[c-VP.numLT-VP.numAZ],2)/pow(pdfp.t4_width[c-VP.numLT-VP.numAZ],2);
-      if ( c >= VP.numLT + VP.numAZ + VP.numT4 )
+      if ( c >= VP.numLT + VP.numAZ + VP.numT4 && c < VP.numLT + VP.numAZ + VP.numT4 + VP.numT6 )
 	chi2 += pow(pdfp.t6_prior[c-VP.numLT-VP.numAZ-VP.numT4],2)/pow(pdfp.t6_width[c-VP.numLT-VP.numAZ-VP.numT4],2);
+      if ( c>= VP.numLT + VP.numAZ + VP.numT4 + VP.numT6 && c < VP.numLT + VP.numAZ + VP.numT4 + VP.numT6 + VP.numT8 )
+	chi2 += pow(pdfp.t8_prior[c-VP.numLT-VP.numAZ-VP.numT4-VP.numT6],2)/pow(pdfp.t8_width[c-VP.numLT-VP.numAZ-VP.numT4-VP.numT6],2);
+      if ( c >= VP.numLT + VP.numAZ + VP.numT4 + VP.numT6 + VP.numT8 )
+	chi2 += pow(pdfp.t10_prior[c-VP.numLT-VP.numAZ-VP.numT4-VP.numT6-VP.numT8],2)/pow(pdfp.t10_width[c-VP.numLT-VP.numAZ-VP.numT4-VP.numT6-VP.numT8],2);
     }
 #endif
   return chi2;
@@ -308,9 +314,9 @@ std::vector<double> ell2Chi2(const double chi2FromFit, pdfFitParams_t * p, gsl_v
 int main( int argc, char *argv[] )
 {
 
-  if ( argc != 16 && argc != 17 )
+  if ( argc != 18 && argc != 19 )
     {
-      std::cout << "Usage: $0 <PDF (0 [QVAL] -or- 1 [QPLUS])> <lt n-jacobi> <az n-jacobi> <Twist-4 n-jacobi> <Twist-6 n-jacobi> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin cut> <zmax cut> <pmin cut> <pmax cut> <Dirac matrix of insertion - Chroma int notation> <h5 for systematic error>" << std::endl;
+      std::cout << "Usage: $0 <PDF (0 [QVAL] -or- 1 [QPLUS])> <lt n-jacobi> <az n-jacobi> <Twist-4 n-jacobi> <Twist-6 n-jacobi> <Twist-8 n-jacobi> <Twist-10 n-jacobi> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin cut> <zmax cut> <pmin cut> <pmax cut> <Dirac matrix of insertion - Chroma int notation> <h5 for systematic error>" << std::endl;
       exit(1);
     }
   
@@ -321,7 +327,7 @@ int main( int argc, char *argv[] )
   
   int gauge_configs, jkStart, jkEnd;
 
-  gsl_vector *dumLTIni, *dumAZIni, *dumT4Ini, *dumT6Ini;
+  gsl_vector *dumLTIni, *dumAZIni, *dumT4Ini, *dumT6Ini, *dumT8Ini, *dumT10Ini;
   
   std::string matelemType;
   enum PDFs { QVAL, QPLUS };
@@ -331,15 +337,17 @@ int main( int argc, char *argv[] )
   ss << argv[3];  ss >> nParamsAZ;     ss.clear(); ss.str(std::string());
   ss << argv[4];  ss >> nParamsT4;     ss.clear(); ss.str(std::string());
   ss << argv[5];  ss >> nParamsT6;     ss.clear(); ss.str(std::string());
-  ss << argv[7];  ss >> matelemType;   ss.clear(); ss.str(std::string());
-  ss << argv[8];  ss >> gauge_configs; ss.clear(); ss.str(std::string());
-  ss << argv[9];  ss >> jkStart;       ss.clear(); ss.str(std::string());
-  ss << argv[10];  ss >> jkEnd;        ss.clear(); ss.str(std::string());
-  ss << argv[11]; ss >> zmin;          ss.clear(); ss.str(std::string());
-  ss << argv[12]; ss >> zmax;          ss.clear(); ss.str(std::string());
-  ss << argv[13]; ss >> pmin;          ss.clear(); ss.str(std::string());
-  ss << argv[14]; ss >> pmax;          ss.clear(); ss.str(std::string());
-  ss << argv[15]; ss >> dirac;         ss.clear(); ss.str(std::string());
+  ss << argv[6];  ss >> nParamsT8;     ss.clear(); ss.str(std::string());
+  ss << argv[7];  ss >> nParamsT10;    ss.clear(); ss.str(std::string());
+  ss << argv[9];  ss >> matelemType;   ss.clear(); ss.str(std::string());
+  ss << argv[10]; ss >> gauge_configs; ss.clear(); ss.str(std::string());
+  ss << argv[11]; ss >> jkStart;       ss.clear(); ss.str(std::string());
+  ss << argv[12]; ss >> jkEnd;         ss.clear(); ss.str(std::string());
+  ss << argv[13]; ss >> zmin;          ss.clear(); ss.str(std::string());
+  ss << argv[14]; ss >> zmax;          ss.clear(); ss.str(std::string());
+  ss << argv[15]; ss >> pmin;          ss.clear(); ss.str(std::string());
+  ss << argv[16]; ss >> pmax;          ss.clear(); ss.str(std::string());
+  ss << argv[17]; ss >> dirac;         ss.clear(); ss.str(std::string());
 
 
   // Kill outright if dirac != 8,11
@@ -357,7 +365,7 @@ int main( int argc, char *argv[] )
   /*
     Require minimally nParamsLT >= 1
   */
-  if ( nParamsLT < 1 || nParamsAZ < 0 || nParamsT4 < 0 || nParamsT6 < 0 )
+  if ( nParamsLT < 1 || nParamsAZ < 0 || nParamsT4 < 0 || nParamsT6 < 0 || nParamsT8 < 0 || nParamsT10 < 0 )
     {
       std::cout << "Cannot minimize with those parameters" << std::endl;
       exit(1);
@@ -368,19 +376,21 @@ int main( int argc, char *argv[] )
   if ( pdfType == 1 )
     {
       matelemType="q+_"+matelemType;
-      nParams = 2 + nParamsLT + nParamsAZ + nParamsT4 + nParamsT6; // C_0 coeff not fixed by PDF normalization
+      nParams = 2 + nParamsLT + nParamsAZ + nParamsT4 + nParamsT6 + nParamsT8 + nParamsT10; // C_0 coeff not fixed by PDF normalization
       dumLTIni = gsl_vector_alloc(nParamsLT);
     }
   if ( pdfType == 0 )
     {
       matelemType="qv_"+matelemType;
       // nParams = 2 + (nParamsLT - 1) + nParamsAZ + nParamsT4 + nParamsT6; // C_0 coeff fixed by PDF normalization
-      nParams = 2 + nParamsLT + nParamsAZ + nParamsT4 + nParamsT6;
+      nParams = 2 + nParamsLT + nParamsAZ + nParamsT4 + nParamsT6 + nParamsT8 + nParamsT10;
       dumLTIni = gsl_vector_alloc(nParamsLT); //  - 1);
     }
   dumAZIni = gsl_vector_alloc(nParamsAZ);
   dumT4Ini = gsl_vector_alloc(nParamsT4);
   dumT6Ini = gsl_vector_alloc(nParamsT6);
+  dumT8Ini = gsl_vector_alloc(nParamsT8);
+  dumT10Ini = gsl_vector_alloc(nParamsT10);
 
 
   // Set an output file for jackknife fit results
@@ -390,6 +400,7 @@ int main( int argc, char *argv[] )
     "-"+std::to_string(jkEnd)+"."+std::to_string(nParams)+"-parameter_"+
     std::to_string(nParamsLT)+"lt_"+std::to_string(nParamsAZ)+"az_"+
     std::to_string(nParamsT4)+"t4_"+std::to_string(nParamsT6)+"t6_"+
+    std::to_string(nParamsT8)+"t8_"+std::to_string(nParamsT10)+"t10_"+
     ".convolJ.uncorrelated";
 #else
 #warning "   Performing a correlated fit"
@@ -397,6 +408,7 @@ int main( int argc, char *argv[] )
     "-"+std::to_string(jkEnd)+"."+std::to_string(nParams)+"-parameter_"+
     std::to_string(nParamsLT)+"lt_"+std::to_string(nParamsAZ)+"az_"+
     std::to_string(nParamsT4)+"t4_"+std::to_string(nParamsT6)+"t6_"+
+    std::to_string(nParamsT8)+"t8_"+std::to_string(nParamsT10)+"t10_"+
     ".convolJ.correlated";
 #endif
   output += ".pmin"+std::to_string(pmin)+"_pmax"+std::to_string(pmax)+
@@ -413,17 +425,17 @@ int main( int argc, char *argv[] )
 
   // Read from H5 file (all z's & p's)
 #ifdef CONVOLC
-  H5Read(argv[6],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"itd",dirac); // pitd
+  H5Read(argv[8],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"itd",dirac); // pitd
   try {
-    H5Read(argv[16],&distributionSysErr,gauge_configs,zmin,zmax,pmin,pmax,"itd",dirac); // pitd
+    H5Read(argv[18],&distributionSysErr,gauge_configs,zmin,zmax,pmin,pmax,"itd",dirac); // pitd
   } catch (std::string &e) {
     std::cout << "H5 to estimate sys. error not set ... skipping..." << std::endl;
   }   
 #endif
 #ifdef CONVOLK
-  H5Read(argv[6],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"pitd",dirac);
+  H5Read(argv[8],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"pitd",dirac);
   try {
-    H5Read(argv[16],&distributionSysErr,gauge_configs,zmin,zmax,pmin,pmax,"pitd",dirac);
+    H5Read(argv[18],&distributionSysErr,gauge_configs,zmin,zmax,pmin,pmax,"pitd",dirac);
   } catch (std::string &e) {
     std::cout << "H5 to estimate sys. error not set ... skipping..." << std::endl;
   }
@@ -500,9 +512,9 @@ int main( int argc, char *argv[] )
 
       /*
 	Set up an instance of pdfFitParams_t struct for fit param printing
-	pass dummy LT, AZ, T4 vectors for pmap member initialization
+	pass dummy LT, AZ, T4, T6, T8, T10 vectors for pmap member initialization
       */
-      pdfFitParams_t *dumPfp = new pdfFitParams_t(pdfType, 0.05,2.0,dumLTIni,dumAZIni,dumT4Ini,dumT6Ini);
+      pdfFitParams_t *dumPfp = new pdfFitParams_t(pdfType, 0.05,2.0,dumLTIni,dumAZIni,dumT4Ini,dumT6Ini,dumT8Ini,dumT10Ini);
       gsl_vector_set(pdfp_ini, 0, dumPfp->alpha); // alpha
       gsl_vector_set(pdfp_ini, 1, dumPfp->beta);  // beta
 
@@ -623,7 +635,7 @@ int main( int argc, char *argv[] )
       /*
 	With optimal {alpha,beta}, make one last varPro instance and determine solution vector of constants
       */
-      varPro solution(nParamsLT, nParamsAZ, nParamsT4, nParamsT6, nuzJK.size(), pdfType);
+      varPro solution(nParamsLT, nParamsAZ, nParamsT4, nParamsT6, nParamsT8, nParamsT10, nuzJK.size(), pdfType);
       solution.makeBasis(dirac, gsl_vector_get(fminBest,0),
 			 gsl_vector_get(fminBest,1),nuzJK);
       if ( pdfType == 0 )

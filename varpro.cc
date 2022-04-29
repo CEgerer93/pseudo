@@ -76,7 +76,7 @@ namespace VarPro
 					     So l passed pitd_texp_sigma_n_treelevel
 					     needs to be shifted to l-(numLT+numAZ+numT4-1)
 	    */
-	    else if ( l >= numLT + numAZ + numT4 )
+	    else if ( l >= numLT + numAZ + numT4 && l < numLT + numAZ + numT4 + numT6 )
 	      {
 		if ( pdfType == 0 )
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),pow(v->first*LAMBDA,4)*
@@ -84,6 +84,36 @@ namespace VarPro
 		if ( pdfType == 1 )
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),pow(v->first*LAMBDA,4)*
 				 pitd_texp_eta_n_treelevel(l-(numLT+numAZ+numT4), 75, a, b, v->second) );
+	      }
+	    /*
+	      (z*Lambda_qcd)^6 corrections : \sum from l = 1 of pitd_texp_sigma_n_treelevel
+	                                     \sum from l = 0 of pitd_texp_eta_n_treelevel
+					     So l passed pitd_texp_sigma_n_treelevel
+					     needs to be shifted to l-(numLT+numAZ+numT4+numT6-1)
+	    */
+	    else if ( l >= numLT + numAZ + numT4 + numT6 && l < numLT + numAZ + numT4 + numT6 + numT8 )
+	      {
+		if ( pdfType == 0 )
+		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),pow(v->first*LAMBDA,6)*
+				 pitd_texp_sigma_n_treelevel(l-(numLT+numAZ+numT4+numT6-1), 75, a, b, v->second) );
+		if ( pdfType == 1 )
+		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),pow(v->first*LAMBDA,6)*
+				 pitd_texp_eta_n_treelevel(l-(numLT+numAZ+numT4+numT6), 75, a, b, v->second) );
+	      }
+	    /*
+	      (z*Lambda_qcd)^8 corrections : \sum from l = 1 of pitd_texp_sigma_n_treelevel
+	                                     \sum from l = 0 of pitd_texp_eta_n_treelevel
+					     So l passed pitd_texp_sigma_n_treelevel
+					     needs to be shifted to l-(numLT+numAZ+numT4+numT6+numT8-1)
+	    */
+	    else if ( l >= numLT + numAZ + numT4 + numT6 + numT8 )
+	      {
+		if ( pdfType == 0 )
+		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),pow(v->first*LAMBDA,8)*
+				 pitd_texp_sigma_n_treelevel(l-(numLT+numAZ+numT4+numT6+numT8-1), 75, a, b, v->second) );
+		if ( pdfType == 1 )
+		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),pow(v->first*LAMBDA,8)*
+				 pitd_texp_eta_n_treelevel(l-(numLT+numAZ+numT4+numT6+numT8), 75, a, b, v->second) );
 	      }
 	  } // nuz
       } // l
@@ -117,8 +147,12 @@ namespace VarPro
 	  priorsSum += fitParams.az_prior[l-numLT]/pow(fitParams.az_width[l-numLT],2);
 	else if ( l >= numLT + numAZ && l < numLT + numAZ + numT4 )
 	  priorsSum += fitParams.t4_prior[l-numLT-numAZ]/pow(fitParams.t4_width[l-numLT-numAZ],2);
-	else if ( l >= numLT + numAZ + numT4 )
+	else if ( l >= numLT + numAZ + numT4 && l < numLT + numAZ + numT4 + numT6 )
 	  priorsSum += fitParams.t6_prior[l-numLT-numAZ-numT4]/pow(fitParams.t6_width[l-numLT-numAZ-numT4],2);
+	else if ( l >= numLT + numAZ + numT4 + numT6 && l < numLT + numAZ + numT4 + numT6 + numT8 )
+	  priorsSum += fitParams.t8_prior[l-numLT-numAZ-numT4-numT6]/pow(fitParams.t8_width[l-numLT-numAZ-numT4-numT6],2);
+	else if ( l >= numLT + numAZ + numT4 + numT6 + numT8 )
+	  priorsSum += fitParams.t10_prior[l-numLT-numAZ-numT4-numT6-numT8]/pow(fitParams.t10_width[l-numLT-numAZ-numT4-numT6-numT8],2);
 
 	// Now set the l^th entry of Y
 	gsl_vector_set(Y, l, sum+priorsSum);
@@ -157,8 +191,12 @@ namespace VarPro
 		  sum += (1.0/pow(fitParams.az_width[k-numLT],2));
 		if ( k >= numLT + numAZ && l < numLT + numAZ + numT4 )
 		  sum += (1.0/pow(fitParams.t4_width[k-numLT-numAZ],2));
-		if ( k >= numLT + numAZ + numT4 )
+		if ( k >= numLT + numAZ + numT4 && l < numLT + numAZ + numT4 + numT6 )
 		  sum += (1.0/pow(fitParams.t6_width[k-numLT-numAZ-numT4],2));
+		if ( k >= numLT + numAZ + numT4 + numT6 && l < numLT + numAZ + numT4 + numT6 + numT8 )
+		  sum += (1.0/pow(fitParams.t8_width[k-numLT-numAZ-numT4-numT6],2));
+		if ( k >= numLT + numAZ + numT4 + numT6 + numT8 )
+		  sum += (1.0/pow(fitParams.t10_width[k-numLT-numAZ-numT4-numT6-numT8],2));
 	      }
 
 	    // Insert this value into the Phi matrix
