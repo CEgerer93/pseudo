@@ -5,7 +5,12 @@
 
 #include<gsl/gsl_permutation.h> // permutation header for matrix inversions
 #include<gsl/gsl_blas.h>
-#include <gsl/gsl_linalg.h> // linear algebra
+#include<gsl/gsl_linalg.h> // linear algebra
+
+// Macros for maximum z and p in computed data
+#warning "Setting DATMAXZ & DATMAXP from Makefile!***************"
+#define DATMAXZ MAXZ
+#define DATMAXP MAXP
 
 namespace PITD
 {
@@ -20,6 +25,19 @@ namespace PITD
 	  os << " " << v[i];
       }
     return os;
+  }
+
+  // Scale a vector
+  // template<typename T>
+  // std::vector<T>& operator*=(std::vector<T>& v, T s)
+  std::vector<double>& operator*=(std::vector<double>& v, double s)
+  {
+    if ( v.size() > 0 )
+      {
+	for ( auto itr = v.begin(); itr != v.end(); ++itr )
+	  *itr *= s;
+      }
+    return v;
   }
 
   // Operator to allow direct multiplication of long double and std::complex<double>
@@ -56,6 +74,37 @@ namespace PITD
       }
       std::cout << "},\n";
     }    
+  }
+
+
+  /*
+    COMPUTE DETERMINANT OF REAL SYMMETRIC MATRIX BY ISOLATING EIGENVALUES
+  */
+  double computeDet(gsl_matrix * m)
+  {
+    gsl_matrix * tmp = gsl_matrix_alloc(m->size1,m->size2);
+    gsl_matrix_memcpy(tmp,m);
+
+    gsl_eigen_symm_workspace * w = gsl_eigen_symm_alloc(tmp->size1);
+    gsl_vector * evec = gsl_vector_alloc(tmp->size1);
+
+    gsl_eigen_symm(tmp, evec, w);
+    gsl_eigen_symm_free(w);
+
+    // Multiply the eigenvalues
+    std::cout << "Eigenvalues = ";
+    for ( size_t i = 0; i < evec->size; ++i )
+      std::cout << gsl_vector_get(evec,i) << " ";
+    std::cout << "\n";
+
+    double det = gsl_vector_get(evec,0);
+    for ( size_t i = 1; i < evec->size; ++i )
+      det *= gsl_vector_get(evec,i);
+
+    gsl_matrix_free(tmp);
+    gsl_vector_free(evec);
+
+    return det;
   }
 
 
@@ -161,9 +210,31 @@ namespace PITD
     // Insert the MInv into std::map<int, gsl_matrix *> mapInvs container
     // & Return the number of singular values removed
     mapInvs[zi] = MInv;
-    return pseudoSInv->size - aboveCutVals.size();
+
+    int pseudoSInvSize = pseudoSInv->size;
+
+    gsl_matrix_free(toInvert);
+    gsl_matrix_free(V);
+    gsl_vector_free(S);
+    gsl_vector_free(work);
+    gsl_vector_free(pseudoSInv);
+    gsl_matrix_free(pseudoSInvMat);
+    gsl_matrix_free(SinvUT);
+    gsl_matrix_free(id);
+
+
+    return pseudoSInvSize - aboveCutVals.size();
   }
 
+
+  /*
+    Print all ensemble avg data with the same z value
+  */
+  void reducedPITD::ensemPrintZ(int zf, int comp)
+  {
+    for ( auto m = data.disps[zf].moms.begin(); m != data.disps[zf].moms.end(); ++m )
+      std::cout << "(IT,matAvg) = (" << m->second.IT << "," << m->second.matAvg << ")" << std::endl;
+  }
 
   /*
     Calculation data covariance for each zsep
@@ -255,11 +326,11 @@ namespace PITD
   */
   void reducedPITD::calcCov()
   {
-    // Instantiate pointers to gsl matrices and set all entries to zero
-    data.covR = gsl_matrix_calloc(data.disps.size()*data.disps.begin()->second.moms.size(),
-				  data.disps.size()*data.disps.begin()->second.moms.size());
-    data.covI = gsl_matrix_calloc(data.disps.size()*data.disps.begin()->second.moms.size(),
-				  data.disps.size()*data.disps.begin()->second.moms.size());
+    // // Instantiate pointers to gsl matrices and set all entries to zero
+    // data.covR = gsl_matrix_calloc(data.disps.size()*data.disps.begin()->second.moms.size(),
+    // 				  data.disps.size()*data.disps.begin()->second.moms.size());
+    // data.covI = gsl_matrix_calloc(data.disps.size()*data.disps.begin()->second.moms.size(),
+    // 				  data.disps.size()*data.disps.begin()->second.moms.size());
     for ( std::map<int, zvals>::iterator di = data.disps.begin(); di != data.disps.end(); ++di )
       {
 	for ( std::map<std::string, momVals>::const_iterator mi = di->second.moms.begin();
@@ -297,8 +368,14 @@ namespace PITD
 			gsl_matrix_set(data.covI, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_i );
 		      }
 #else
-		    gsl_matrix_set(data.covR, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_r );
-		    gsl_matrix_set(data.covI, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_i );
+		    // gsl_matrix_set(data.covR, I, J, (( 1.0 )/(1.0*(gauge_configs-1)))*_r );
+		    // gsl_matrix_set(data.covI, I, J, (( 1.0 )/(1.0*(gauge_configs-1)))*_i );
+
+		    gsl_matrix_set(data.covR, I, J, (( 1.0 )/(gauge_configs*(gauge_configs-1)))*_r );
+		    gsl_matrix_set(data.covI, I, J, (( 1.0 )/(gauge_configs*(gauge_configs-1)))*_i );
+
+		    // gsl_matrix_set(data.covR, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_r );
+		    // gsl_matrix_set(data.covI, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_i );
 #endif
 		  } // end mj
 	      } // end dj
@@ -349,6 +426,42 @@ namespace PITD
 	  } // mi
       } // di
   } // addSystematicCov
+
+  /*
+    Modify data covariance per z to include a systematic error
+  */
+  void reducedPITD::addSystematicCovPerZ(reducedPITD *sysDist)
+  {
+    for ( std::map<int, zvals>::iterator di = sysDist->data.disps.begin(); di != sysDist->data.disps.end(); ++di )
+      {
+	// Calloc matrices to store differences per z
+	gsl_matrix * diffR = gsl_matrix_calloc(MAXP,MAXP);
+	gsl_matrix * diffI = gsl_matrix_calloc(MAXP,MAXP);
+
+	for ( std::map<std::string, momVals>::const_iterator mi = di->second.moms.begin();
+	      mi != di->second.moms.end(); mi++ )
+	  {	    
+	    // Get avgmatelem from unmodifed h5  &  subtract avgmatelem from sysDist h5
+	    std::complex<double> diff = data.disps[di->first].moms[mi->first].matAvg - mi->second.matAvg;
+	    
+	    // Get the Ith index - i.e. which diagonal entry to alter from zero
+	    int I = std::distance<std::map<std::string, momVals>::const_iterator>(di->second.moms.begin(), mi);
+
+	    // Set the diff* matrices
+	    gsl_matrix_set(diffR,I,I,pow(diff.real(),2));
+	    gsl_matrix_set(diffI,I,I,pow(diff.imag(),2)); 
+	  } // mi
+
+	// Square the difference and add to diagonal of covariance matrix
+	gsl_matrix_add(data.covsR[di->first],diffR);
+	gsl_matrix_add(data.covsI[di->first],diffI);
+	
+	// Free
+	gsl_matrix_free(diffR);
+	gsl_matrix_free(diffI);
+
+      } // di
+  } // addSystematicCovPerZ
 
   /*
     Cut on Z's and P's to exclude from fit

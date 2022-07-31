@@ -120,9 +120,9 @@ double chi2Func(const gsl_vector * x, void *data)
 int main( int argc, char *argv[] )
 {
 
-  if ( argc != 9 )
+  if ( argc != 9 && argc != 10 )
     {
-      std::cout << "Usage: $0 <h5 file> <configs> <matelemType> <zmin> <zmax> <pmin> <pmax> <Dirac matrix of insertion - Chroma int notation>" << std::endl;
+      std::cout << "Usage: $0 <h5 file> <configs> <matelemType> <zmin> <zmax> <pmin> <pmax> <Dirac matrix of insertion - Chroma int notation> <h5 for systematic error>" << std::endl;
       exit(1);
     }
 
@@ -156,9 +156,11 @@ int main( int argc, char *argv[] )
 
 
   reducedPITD rawPseudo(gauge_configs);
+  reducedPITD rawPseudoSysErr(gauge_configs);
 
 
   H5Read(argv[1], &rawPseudo, gauge_configs, zmin, zmax, pmin, pmax, "pitd", dirac);
+  H5Read(argv[9], &rawPseudoSysErr, gauge_configs, zmin, zmax, pmin, pmax, "pitd", dirac);
 
   // for ( int J = 0 ; J < gauge_configs; J++ )
   //   {
@@ -169,8 +171,9 @@ int main( int argc, char *argv[] )
   /*
     Make data covariance within each zsep channel
   */
-  rawPseudo.calcCovPerZ();    std::cout << "Got the covariances per z" << std::endl;
-  rawPseudo.calcInvCovPerZ(); std::cout << "Got the inverses of covarianes per z" << std::endl;
+  rawPseudo.calcCovPerZ();                          std::cout << "Got the covariances per z" << std::endl;
+  rawPseudo.addSystematicCovPerZ(&rawPseudoSysErr); std::cout << "Added sys error of matelem to diagonal of data covariance" << std::endl;
+  rawPseudo.calcInvCovPerZ();                       std::cout << "Got the inverses of covarianes per z" << std::endl;
 
   // rawPseudo.viewZCovMat(1);
   // rawPseudo.viewZCovInvMat(1);

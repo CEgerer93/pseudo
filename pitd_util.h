@@ -13,6 +13,7 @@
 #include<complex>
 
 #include<gsl/gsl_matrix.h>
+#include<gsl/gsl_eigen.h>
 
 #include "hdf5.h"
 
@@ -29,6 +30,12 @@ const double alphaS   = ALPHAS; //0.303; // 0.2;
 
 namespace PITD
 {
+  /* // Scale a vector */
+  /* template<typename T> */
+  /*   std::vector<T>& operator*=(std::vector<T>& v, T s); */
+
+  std::vector<double>& operator*=(std::vector<double>& v, double s);
+
   // Operator to allow direct multiplication of long double and std::complex<double>
   std::complex<double> operator*(long double ld, std::complex<double> c);
 
@@ -87,6 +94,12 @@ namespace PITD
     gsl_matrix *covR, *covI;        // Full data covariances
     gsl_matrix *invCovR, *invCovI; // Inverses of full data covariances
     int svsFullR, svsFullI;        // # singular values removed from full data covariance
+    
+    /* ~pitd() */
+    /* { */
+    /*   gsl_matrix_free(covR); gsl_matrix_free(invCovR); */
+    /*   gsl_matrix_free(covI); gsl_matrix_free(invCovI); */
+    /* } */
   };
 
 
@@ -104,14 +117,22 @@ namespace PITD
     reducedPITD() {}
     // Parametrized
     reducedPITD(int g) { gauge_configs = g; }
-    reducedPITD(int g, int zmin, int zmax, int pmin, int pmax)
+  reducedPITD(int g, int zmin, int zmax, int pmin, int pmax) : gauge_configs(g), zminCut(zmin),
+      zmaxCut(zmax), pminCut(pmin), pmaxCut(pmax)
       {
-	gauge_configs = g;
-	zminCut = zmin; zmaxCut = zmax;
-	pminCut = pmin; pmaxCut = pmax;
+	numPZ = (zmax - zmin + 1)*(pmax - pmin + 1);
+
+	data.covR    = gsl_matrix_calloc(numPZ,numPZ);
+	data.covI    = gsl_matrix_calloc(numPZ,numPZ);
+	data.invCovR = gsl_matrix_calloc(numPZ,numPZ);
+	data.invCovI = gsl_matrix_calloc(numPZ,numPZ);
       }
     // Destructor
-    virtual ~reducedPITD() {};
+    virtual ~reducedPITD()
+      {
+	gsl_matrix_free(data.covR); gsl_matrix_free(data.covI);
+	gsl_matrix_free(data.invCovR); gsl_matrix_free(data.invCovI);
+      };
 
 
     // Quickly return the number of configs/jackknife samples
@@ -135,6 +156,8 @@ namespace PITD
     // Modify full data covariance to include a systematic error
     // ---> ex) squared diff. btwn. matelem fits w/ diff. Tmin added to diagonal of data covariance
     void addSystematicCov(reducedPITD *sysDist);
+    // Modify data covariance per z to include a systematic error
+    void addSystematicCovPerZ(reducedPITD *sysDist);
 
     // Cut on Z's and P's to exclude from fit
     void cutOnPZ(int minz, int maxz, int minp, int maxp);
@@ -148,6 +171,7 @@ namespace PITD
   private:
     int gauge_configs;
     int zminCut, zmaxCut, pminCut, pmaxCut;
+    int numPZ;
   };
 
   
@@ -167,6 +191,8 @@ namespace PITD
   void printVec(gsl_vector *g);
 
   void printMat(gsl_matrix *g);
+
+  double computeDet(gsl_matrix * m);
 
   int matrixInv(gsl_matrix * M, std::map<int, gsl_matrix *> &mapInvs, int zi);
 
