@@ -52,7 +52,7 @@ namespace VarPro
 		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),1.0/abs(v->first)*
 				 pitd_texp_sigma_n_treelevel(l-(numLT-1), 75, a, b, v->second) );
 		if ( pdfType == 1 )
-		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),pow((1.0/v->first),1)*
+		  gsl_matrix_set(basis, l, std::distance(nuz.begin(), v),1.0/abs(v->first)*
 				 pitd_texp_eta_n_treelevel(l-numLT, 75, a, b, v->second) );
 	      }
 	    /*
@@ -139,7 +139,6 @@ namespace VarPro
 	// Perform (data)^T \cdot (rMult)
 	gsl_blas_ddot(data,rMult,&sum);
 
-
 	// Collect the contributions from any priors
 	if ( l < numLT )
 	  priorsSum += fitParams.prior[l]/pow(fitParams.width[l],2);
@@ -156,6 +155,8 @@ namespace VarPro
 
 	// Now set the l^th entry of Y
 	gsl_vector_set(Y, l, sum+priorsSum);
+	
+	gsl_vector_free(rMult);
       }
   }
 
@@ -202,6 +203,7 @@ namespace VarPro
 	    // Insert this value into the Phi matrix
 	    gsl_matrix_set(Phi, k, l, sum);
 
+	    gsl_vector_free(rMult);
 	  } // l
       } // k
   }
