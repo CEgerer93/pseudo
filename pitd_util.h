@@ -133,6 +133,8 @@ namespace PITD
 	gsl_matrix_free(data.covR); gsl_matrix_free(data.covI);
 	gsl_matrix_free(data.invCovR); gsl_matrix_free(data.invCovI);
       };
+#warning "FIX ME - Need a suitable destructor for pitdEvo case, wherein gsl_matrices are not allocated!"
+    /* virtual ~reducedPITD() {}  */
 
 
     // Quickly return the number of configs/jackknife samples

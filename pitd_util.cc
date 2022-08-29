@@ -326,11 +326,6 @@ namespace PITD
   */
   void reducedPITD::calcCov()
   {
-    // // Instantiate pointers to gsl matrices and set all entries to zero
-    // data.covR = gsl_matrix_calloc(data.disps.size()*data.disps.begin()->second.moms.size(),
-    // 				  data.disps.size()*data.disps.begin()->second.moms.size());
-    // data.covI = gsl_matrix_calloc(data.disps.size()*data.disps.begin()->second.moms.size(),
-    // 				  data.disps.size()*data.disps.begin()->second.moms.size());
     for ( std::map<int, zvals>::iterator di = data.disps.begin(); di != data.disps.end(); ++di )
       {
 	for ( std::map<std::string, momVals>::const_iterator mi = di->second.moms.begin();
@@ -371,11 +366,11 @@ namespace PITD
 		    // gsl_matrix_set(data.covR, I, J, (( 1.0 )/(1.0*(gauge_configs-1)))*_r );
 		    // gsl_matrix_set(data.covI, I, J, (( 1.0 )/(1.0*(gauge_configs-1)))*_i );
 
-		    gsl_matrix_set(data.covR, I, J, (( 1.0 )/(gauge_configs*(gauge_configs-1)))*_r );
-		    gsl_matrix_set(data.covI, I, J, (( 1.0 )/(gauge_configs*(gauge_configs-1)))*_i );
+		    // gsl_matrix_set(data.covR, I, J, (( 1.0 )/(gauge_configs*(gauge_configs-1)))*_r );
+		    // gsl_matrix_set(data.covI, I, J, (( 1.0 )/(gauge_configs*(gauge_configs-1)))*_i );
 
-		    // gsl_matrix_set(data.covR, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_r );
-		    // gsl_matrix_set(data.covI, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_i );
+		    gsl_matrix_set(data.covR, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_r );
+		    gsl_matrix_set(data.covI, I, J, (( gauge_configs - 1 )/(1.0*gauge_configs))*_i );
 #endif
 		  } // end mj
 	      } // end dj
@@ -586,43 +581,6 @@ namespace PITD
 	  {
 	    hid_t h5Mom = H5Gopen(h5Zsep, momenta[m], H5P_DEFAULT);
 
-
-	    // // Start by grabbing handle to ensemble group
-	    // hid_t h5Ensem = H5Gopen(h5Mom, "ensemble", H5P_DEFAULT);
-	    
-	    // for ( int c = 0; c < ReIm; c++ )
-	    //   {
-	    //     // Get the component handle
-	    //     hid_t h5Comp = H5Gopen(h5Ensem,comp[c], H5P_DEFAULT);
-	    
-	    //     for ( int z = zmin; z <= zmax; z++ )
-	    //       {
-	    // 	// Get the zsep handle
-	    // 	hid_t h5Zsep = H5Gopen(h5Comp, zsep[z], H5P_DEFAULT);
-	    
-	    // 	double ensemPitd[3];
-	    // 	// Grab the dataset handle
-	    // 	h5Pitd  = H5Dopen(h5Zsep, DATASET, H5P_DEFAULT);
-	    // 	// Grab the data!
-	    // 	h5Status = H5Dread(h5Pitd, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, ensemPitd);
-	    
-	    
-	    // 	if ( c == 0 )
-	    // 	  {
-	    // 	    dat->data.real.disps[z].ensem.IT[m-pmin]=ensemPitd[0];
-	    // 	    ens->real.disps[z].ensem.avgM[m-pmin]=ensemPitd[1];
-	    // 	    ens->real.disps[z].ensem.errM[m-pmin]=ensemPitd[2];
-	    // 	  }
-	    // 	if ( c == 1 )
-	    // 	  {
-	    // 	    ens->imag.disps[z].ensem.IT[m-pmin]=ensemPitd[0];
-	    // 	    ens->imag.disps[z].ensem.avgM[m-pmin]=ensemPitd[1];
-	    // 	    ens->imag.disps[z].ensem.errM[m-pmin]=ensemPitd[2];
-	    // 	  }
-	    //       } // end z
-	    //     H5Gclose(h5Comp);
-	    //   } // end c
-	    // H5Gclose(h5Ensem); // Finished parsing the ensemble groups
 	    
 	    // Now grab a handle to the jack group
 	    hid_t h5Jack = H5Gopen(h5Mom, "jack", H5P_DEFAULT);
@@ -691,23 +649,6 @@ namespace PITD
 		
 		dumZ.moms.insert(amom);
 		
-		// // Associate an int w/ zvals object
-		// std::pair<int, zvals> az ( z, dumZ );
-		// // Insert this zvals map into the pitd.disps map
-		// dat->data.disps.insert( az );
-
-		// std::cout << "XXX = " << _avgI / gauge_configs << std::endl;
-		// std::cout << "XXX = " << dumZ.moms["pz1"].mat[0].real() << std::endl;
-
-		
-		// End of parsing jack data from read_buf
-
-
-		
-	      // 	H5Gclose(h5Comp);
-	      // } // end c jack
-
-
 
 	    H5Gclose(h5Jack);
 	    H5Gclose(h5Mom);
