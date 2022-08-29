@@ -201,8 +201,8 @@ namespace PITD
   */
   double coeffJacobi(int n, int j, double a, double b)
   {
-    return (pow(-1,j)/gsl_sf_fact(n))*gsl_sf_choose(n,j)
-      *( (gsl_sf_gamma(a+n+1)*gsl_sf_gamma(a+b+n+j+1)) / (gsl_sf_gamma(a+j+1)*gsl_sf_gamma(a+b+n+1)) );
+    return (pow(-1.0,j)/gsl_sf_fact(n))*gsl_sf_choose(n,j)
+      *( (gsl_sf_gamma(a+n+1)*gsl_sf_gamma(a+b+n+j+1)) / (1.0*gsl_sf_gamma(a+j+1)*gsl_sf_gamma(a+b+n+1)) );
   }
 
   /*
@@ -224,14 +224,14 @@ namespace PITD
   {
     double sum(0.0);
     // Sum part of what would be a divergent p-series
-    for ( int k = 1; k <= n; k++ )
+    for ( int k = 2; k <= n+1; k++ )
       sum += 1.0/k;
     sum*=2;
 
     if ( dirac == 8 )
-      return 3/2 - 1/(1+n) - 1/(2+n) - sum;
+      return -1.0/2 + 1.0/((n+1)*(n+2)) - sum;
     else if ( dirac == 11 )
-      return 3/2 - 1/(1+n) - 1/(2+n) - sum;
+      return -1.0/2 + 1.0/((n+1)*(n+2)) - sum;
     else {
       std::cerr << "Insertion Gamma = " << dirac << " not supported";
       exit(4);
@@ -243,16 +243,20 @@ namespace PITD
   */
   double texp_dn(int n, int dirac)
   {
-    double sum(0.0);
+    double sum(0.0), sum2(0.0);
     // Sum part of what would be a divergent p-series
     for ( int k = 1; k <= n; k++ )
-      sum += 1.0/k;
+      {
+	sum  += 1.0/k;
+	sum2 += 1.0/pow(k,2);
+      }
     sum = pow(sum, 2);
 
     if ( dirac == 8 )
-      return 2*( sum + (2*pow(M_PI,2)+n*(n+3)*(3+pow(M_PI,2)))/(6*(n+1)*(n+2)) - gsl_sf_psi_1_int(n+1) );
+      return 2*( sum + sum2 + 1.0/2 - 1.0/((n+1)*(n+2)) );
     else if ( dirac == 11 )
-      return 2*( sum + (2*pow(M_PI,2)+n*(n+3)*(6+pow(M_PI,2)))/(6*(n+1)*(n+2)) - gsl_sf_psi_1_int(n+1) );
+      // return 2*( sum + 1 - (2.0/((n+1)*(n+2))) + sum2 ); // If we are not separating Y & R amplitudes
+      return 2*( sum + sum2 + 1.0/2 - 1.0/((n+1)*(n+2)) ); // If we are separating Y from R
     else {
       std::cerr << "Insertion Gamma = " << dirac << " not supported";
       exit(4);
@@ -278,7 +282,7 @@ namespace PITD
       {
 	for ( int k = 0; k <= trunc; k++ )
 	  {
-	    sum += (pow(-1,k)/gsl_sf_fact(2*k))*texp_cn(2*k,z,dirac)*
+	    sum += (pow(-1.0,k)/gsl_sf_fact(2*k))*texp_cn(2*k,z,dirac)*
 	      coeffJacobi(n,j,a,b)*betaFn(a+2*k+j+1,b+1)*pow(nu,2*k);
 	  }
       }
@@ -295,7 +299,7 @@ namespace PITD
       {
 	for ( int k = 0; k <= trunc; k++ )
 	  {
-	    sum += (pow(-1,k)/gsl_sf_fact(2*k+1))*texp_cn(2*k+1,z,dirac)*
+	    sum += (pow(-1.0,k)/gsl_sf_fact(2*k+1))*texp_cn(2*k+1,z,dirac)*
 	      coeffJacobi(n,j,a,b)*betaFn(a+2*k+j+2,b+1)*pow(nu,2*k+1);
 	  }
       }
@@ -311,7 +315,7 @@ namespace PITD
     for ( int j = 0; j <= n; j++ )
       {
 	for ( int k = 0; k <= trunc; k++ )
-	    sum += (pow(-1,k)/gsl_sf_fact(2*k))*1.0*coeffJacobi(n,j,a,b)*betaFn(a+2*k+j+1,b+1)*pow(nu,2*k);
+	    sum += (pow(-1.0,k)/gsl_sf_fact(2*k))*1.0*coeffJacobi(n,j,a,b)*betaFn(a+2*k+j+1,b+1)*pow(nu,2*k);
       }
     return sum;
   }
@@ -326,7 +330,7 @@ namespace PITD
       {
 	for ( int k = 0; k <= trunc; k++ )
 	  {
-	    sum += (pow(-1,k)/gsl_sf_fact(2*k+1))*1.0*coeffJacobi(n,j,a,b)*betaFn(a+2*k+j+2,b+1)*pow(nu,2*k+1);
+	    sum += (pow(-1.0,k)/gsl_sf_fact(2*k+1))*1.0*coeffJacobi(n,j,a,b)*betaFn(a+2*k+j+2,b+1)*pow(nu,2*k+1);
 	  }
       }
     return sum;
