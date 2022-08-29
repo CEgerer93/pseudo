@@ -44,21 +44,44 @@ struct pdfFitParams_t
   gsl_vector *lt_fitParams, *az_fitParams, *t4_fitParams, *t6_fitParams, *t8_fitParams, *t10_fitParams;
   int nParams;
 
+  double scale; // rescale prior widths from default values below
 
   // Let's try some Bayesian prior stuff
-  std::vector<double> prior {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-  std::vector<double> width {1.1, 0.75, 0.5, 0.25, 0.125, 0.1, 0.05, 0.025};
-
-  std::vector<double> az_prior {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-  std::vector<double> az_width {0.25, 0.25, 0.25, 0.125, 0.125, 0.125, 0.1, 0.1};
-  std::vector<double> t4_prior {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-  std::vector<double> t4_width {0.25, 0.25, 0.25, 0.125, 0.125, 0.125, 0.1, 0.1};
-  std::vector<double> t6_prior {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-  std::vector<double> t6_width {0.25, 0.25, 0.25, 0.125, 0.125, 0.125, 0.1, 0.1};
-  std::vector<double> t8_prior {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-  std::vector<double> t8_width {0.25, 0.25, 0.25, 0.125, 0.125, 0.125, 0.1, 0.1};
+  int numWidths = 8;
+  std::vector<double> prior     {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  std::vector<double> az_prior  {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  std::vector<double> t4_prior  {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  std::vector<double> t6_prior  {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  std::vector<double> t8_prior  {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
   std::vector<double> t10_prior {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
+#if 0
+  std::vector<double> width {1.1, 0.75, 0.5, 0.25, 0.125, 0.1, 0.05, 0.025};
+  std::vector<double> az_width {0.25, 0.25, 0.25, 0.125, 0.125, 0.125, 0.1, 0.1};
+  std::vector<double> t4_width {0.25, 0.25, 0.25, 0.125, 0.125, 0.125, 0.1, 0.1};
+  std::vector<double> t6_width {0.25, 0.25, 0.25, 0.125, 0.125, 0.125, 0.1, 0.1};
+  std::vector<double> t8_width {0.25, 0.25, 0.25, 0.125, 0.125, 0.125, 0.1, 0.1};
   std::vector<double> t10_width {0.25, 0.25, 0.25, 0.125, 0.125, 0.125, 0.1, 0.1};
+#else
+  // 08/02/2022 - don't recall what I was doing here...conceivably dropping the influence of any priors...
+  //            - got some real messed up PDF results using these
+  /* double dummy = 1.0e14; */
+  /* std::vector<double> width {dummy,dummy,dummy,dummy,dummy,dummy,dummy,dummy}; */
+  /* std::vector<double> az_width {dummy,dummy,dummy,dummy,dummy,dummy,dummy,dummy}; */
+  /* std::vector<double> t4_width {dummy,dummy,dummy,dummy,dummy,dummy,dummy,dummy}; */
+  /* std::vector<double> t6_width {dummy,dummy,dummy,dummy,dummy,dummy,dummy,dummy}; */
+  /* std::vector<double> t8_width {dummy,dummy,dummy,dummy,dummy,dummy,dummy,dummy}; */
+  /* std::vector<double> t10_width {dummy,dummy,dummy,dummy,dummy,dummy,dummy,dummy}; */
+
+
+  std::vector<double> width     {0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5};
+  std::vector<double> az_width  {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
+  std::vector<double> t4_width  {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
+  std::vector<double> t6_width  {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
+  std::vector<double> t8_width  {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
+  std::vector<double> t10_width {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
+#endif
+
   
 
   std::map<int, std::string> pmap; // map to print fit parameter string and values during fit
@@ -104,9 +127,9 @@ struct pdfFitParams_t
   }
   
   // Default/Parametrized constructor w/ initializer lists
-pdfFitParams_t() : pdfType(-1), alpha(0.0), beta(0.0) {}
-pdfFitParams_t(int _pt, double _a, double _b, gsl_vector *lt, gsl_vector *az, gsl_vector *t4, gsl_vector *t6, gsl_vector *t8, gsl_vector *t10)
-: pdfType(_pt), alpha(_a), beta(_b)
+pdfFitParams_t() : pdfType(-1), alpha(0.0), beta(0.0), scale(1.0) {}
+pdfFitParams_t(int _pt, double _a, double _b, double _scale, gsl_vector *lt, gsl_vector *az, gsl_vector *t4, gsl_vector *t6, gsl_vector *t8, gsl_vector *t10)
+: pdfType(_pt), alpha(_a), beta(_b), scale(_scale)
   {
     // Set the param/jacobi poly vectors
     // passed lt, az, t4, t6, t8, t10 are allocated, but empty
@@ -121,6 +144,14 @@ pdfFitParams_t(int _pt, double _a, double _b, gsl_vector *lt, gsl_vector *az, gs
       qtype = "q+";
 
     pmap[0] = "alpha (" + qtype + ")"; pmap[1] = "beta (" + qtype + ")";
+
+    // Rescale the prior widths
+    width     *= scale;
+    az_width  *= scale;
+    t4_width  *= scale;
+    t6_width  *= scale;
+    t8_width  *= scale;
+    t10_width *= scale;
   }
 };
 
