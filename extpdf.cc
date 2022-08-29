@@ -60,19 +60,40 @@ using namespace VarPro;
 int dirac;
 
 // Default values of p & z to cut on
-int zmin,zmax,pmin,pmax;
+int zmin,zmax,pmin,pmax,dataDim;
 int nParams, nParamsLT, nParamsAZ, nParamsT4, nParamsT6, nParamsT8, nParamsT10, pdfType; // Determine pdf to fit & # params
 
-// Define non-linear priors and prior widths
-std::vector<double> nlPriors {0.0, 3.0}; // {alpha,beta}
-std::vector<double> nlWidths {0.25, 0.5}; // 0.25, 0.25
+const double scale = 1.0; // rescale prior widths
 
+// Define non-linear priors and prior widths
+const int alpha0 = -1;
+const int beta0  = 0; // AUG 3, 2022: Why the heck was this -1??
+// std::vector<double> nlPriors {0.0, 3.0}; // {alpha,beta}
+// std::vector<double> nlWidths {scale*0.25, scale*0.5}; // JK [0.4,1.0] // ME [0.25, 0.5]
+
+// Priors of logarithm of alpha & beta --> these match JK's priors
+const std::vector<int> logLowBound {alpha0, beta0};
+const std::vector<double> logPriors {0.0, 3.0};
+const std::vector<double> logWidths {scale*0.4,scale*1};
+
+// These are the actual priors used in log-normal distributions
+std::vector<double> nlPriors;
+std::vector<double> nlWidths;
+
+void setLogPriors()
+{
+  for ( int n = 0; n < logPriors.size(); ++n )
+    {
+      nlPriors.push_back( log( ( pow(logPriors[n]-logLowBound[n],2) )/sqrt(pow(logPriors[n]-logLowBound[n],2)+pow(logWidths[n],2)) ) );
+      nlWidths.push_back( log( 1 + pow(logWidths[n],2)/pow(logPriors[n]-logLowBound[n],2) ) );
+    }
+}
 
 /*
   MULTIDIMENSIONAL MINIMIZATION - CHI2 
   MINIMIZE LEAST-SQUARES BETWEEN DATA AND NUMERICALLY INTEGRATED MATCHING KERNEL AND pITD
 */
-double chi2Func(const gsl_vector * x, void *data)
+double costFunc(const gsl_vector * x, void *data)
 {
   // Get a pointer to the (void) "thisJack" reducedPITD class instance
   reducedPITD * ptrJack = (reducedPITD *)data;
@@ -81,6 +102,16 @@ double chi2Func(const gsl_vector * x, void *data)
     invCov = (ptrJack->data.invCovR);
   if ( pdfType == 1 )
     invCov = (ptrJack->data.invCovI);
+
+#if 0
+#warning "Debug crap"
+  for ( int zz = 1; zz < 9; ++zz )
+    {
+      std::cout << "For z = " << zz << "..." << std::endl;
+      ptrJack->ensemPrintZ(zz,1);
+    }
+  exit(90);
+#endif
 
   // Get the current pdf params
   double dumA = gsl_vector_get(x,0); // alpha
@@ -105,7 +136,7 @@ double chi2Func(const gsl_vector * x, void *data)
     }
 #endif
   // Now set the pdf params within a pdfFitParams_t struct instance
-  pdfFitParams_t pdfp(pdfType, dumA, dumB, dumLTFit, dumAZFit, dumT4Fit, dumT6Fit, dumT8Fit, dumT10Fit);
+  pdfFitParams_t pdfp(pdfType, dumA, dumB, scale, dumLTFit, dumAZFit, dumT4Fit, dumT6Fit, dumT8Fit, dumT10Fit);
   
 
   /*
@@ -126,10 +157,10 @@ double chi2Func(const gsl_vector * x, void *data)
     ALSO
     Set the difference btwn convolution and jack data
   */
-#pragma omp parallel num_threads(ptrJack->data.disps.size())
+// #pragma omp parallel num_threads(ptrJack->data.disps.size())
   for ( auto zz = ptrJack->data.disps.begin(); zz != ptrJack->data.disps.end(); ++zz )
     {
-#pragma omp parallel num_threads(zz->second.moms.size())
+// #pragma omp parallel num_threads(zz->second.moms.size())
       for ( auto mm = zz->second.moms.begin(); mm != zz->second.moms.end(); ++mm )
 	{
 	  // The index
@@ -155,6 +186,8 @@ double chi2Func(const gsl_vector * x, void *data)
 	  if ( pdfType == 1 )
 	    gsl_vector_set(iDiffVec,I,convolTmp - mm->second.mat[0].imag());
 
+	  
+
 #elif defined VARPRO
 	  std::pair<int, double> nuzTmp = std::make_pair(zz->first, mm->second.IT);
 	  nuz[I] = nuzTmp;
@@ -165,6 +198,16 @@ double chi2Func(const gsl_vector * x, void *data)
 #endif
 	}
     }
+
+  
+#if 0
+#warning "DEBUG"
+  // std::cout << "DATA VEC (in costFunc) = " << &dataVec << std::endl;
+  std::cout << "DATA VEC (in costFunc) = ";
+  for ( size_t q = 0; q < dataVec->size; ++q )
+    std::cout << gsl_vector_get(dataVec,q) << " ";
+  exit(90);
+#endif
 
 
 #ifdef VARPRO
@@ -231,9 +274,9 @@ double chi2Func(const gsl_vector * x, void *data)
 
 #ifdef CONSTRAINED
   // Log-normal on alpha, beta
-  chi2 += (pow( (log(dumA + 1) - nlPriors[0]), 2))/pow(nlWidths[0],2)
-    + (pow( (log(dumB + 0) - nlPriors[1]), 2))/pow(nlWidths[1],2);
-    // + 2*log((dumA+1)*nlWidths[0]*sqrt(2*M_PI)) + 2*log((dumB+0)*nlWidths[1]*sqrt(2*M_PI));
+  // chi2 += (pow( (log(dumA - alpha0) - nlPriors[0]), 2))/pow(nlWidths[0],2) + (pow( (log(dumB - beta0) - nlPriors[1]), 2))/pow(nlWidths[1],2); # PREVIOUS COST
+  chi2 += (pow( (log(dumA - alpha0) - nlPriors[0]), 2))/pow(nlWidths[0],2) + (pow( (log(dumB - beta0) - nlPriors[1]), 2))/pow(nlWidths[1],2)
+    -2*( log(1.0/((dumA-alpha0)*nlWidths[0]*sqrt(2*M_PI))) + log(1.0/((dumB-beta0)*nlWidths[1]*sqrt(2*M_PI))) );
   // A const piece remains from VarPro w/ priors
   for ( int c = 0; c < VP.numCorrections; c++ )
     {
@@ -251,6 +294,21 @@ double chi2Func(const gsl_vector * x, void *data)
 	chi2 += pow(pdfp.t10_prior[c-VP.numLT-VP.numAZ-VP.numT4-VP.numT6-VP.numT8],2)/pow(pdfp.t10_width[c-VP.numLT-VP.numAZ-VP.numT4-VP.numT6-VP.numT8],2);
     }
 #endif
+
+  gsl_vector_free(dumLTFit);
+  gsl_vector_free(dumAZFit);
+  gsl_vector_free(dumT4Fit);
+  gsl_vector_free(dumT6Fit);
+  gsl_vector_free(dumT8Fit);
+  gsl_vector_free(dumT10Fit);
+  gsl_vector_free(dataVec);
+  gsl_matrix_free(id);
+  gsl_matrix_free(inner);
+  gsl_matrix_free(product);
+  gsl_vector_free(rightMult);
+  gsl_vector_free(dataRMult);
+
+
   return chi2;
 }
 
@@ -267,44 +325,70 @@ double chi2Func(const gsl_vector * x, void *data)
 
   --> SO, this function will determine correct L^2 and unconstrained \chi2
 */
-std::vector<double> ell2Chi2(const double chi2FromFit, pdfFitParams_t * p, gsl_vector * bestParams)
+std::vector<double> ell2Chi2(const double costFromFit, pdfFitParams_t * p, gsl_vector * bestParams,
+			     double detCov, int dataDim)
 {
   // vector to return true L^2 and unconstrained chi2
-  std::vector<double> LC(2,chi2FromFit); // w/ LC[0] = L^2  &  LC[1] = chi2
+  std::vector<double> LC(2,costFromFit); // w/ LC[0] = L^2  &  LC[1] = chi2
   // Convenience
   double alpha = gsl_vector_get(bestParams,0);
   double beta  = gsl_vector_get(bestParams,1);
+  int nLT = p->lt_fitParams->size;
+  int nAZ = p->az_fitParams->size;
+  int nT4 = p->t4_fitParams->size;
+  int nT6 = p->t6_fitParams->size;
+  int nT8 = p->t8_fitParams->size;
+  int nT10 = p->t10_fitParams->size;
 
+#ifdef DETCOV_IN_L2
+  /*
+    Account for dimension of dataset and determinant of data covariance --> irrelevant constant when comparing models on fixed data
+    L^2 -= 2 log ( 1/ \sqrt[ (2\pi)^d * det[Cov] ] )
+  */
+  LC[0] -= 2*log(1.0/sqrt( pow(2*M_PI,dataDim)*detCov));
+#endif
 
-  // Start by computing true L^2 by appending normalizations of prior dists. and prob. of data given params
-  LC[0] -= 2*( log(1.0/sqrt(2*M_PI)) + log(1.0/((alpha+1)*nlWidths[0]*sqrt(2*M_PI)))\
-	       + log(1.0/((beta-0)*nlWidths[1]*sqrt(2*M_PI))) );
-
-  // Next, remove prior infomation on \alpha, \beta from chi2
-  LC[1] -= ( pow( log(alpha+1)-nlPriors[0], 2)/pow(nlWidths[0], 2) + pow( log(beta-0)-nlPriors[1], 2)/pow(nlWidths[1], 2) );
-
+  // Next, remove prior infomation on \alpha, \beta from cost
+  LC[1] -= ( pow( log(alpha-alpha0)-nlPriors[0], 2)/pow(nlWidths[0], 2) + pow( log(beta-beta0)-nlPriors[1], 2)/pow(nlWidths[1], 2) );
+  LC[1] += 2*( log(1.0/((alpha-alpha0)*nlWidths[0]*sqrt(2*M_PI))) + log(1.0/((beta-beta0)*nlWidths[1]*sqrt(2*M_PI))) );
 
   // Arrive at final talley for L^2 and unconstrained chi2 by accounting for Gaussian priors of linear Jacobi coeffs.
-  int i;
-  for ( i = 2; i < p->lt_fitParams->size + 2; i++ )
+  int i, offset;
+  for ( i = 2; i < nLT + 2; i++ )
     {
-      LC[1] -= pow( gsl_vector_get(bestParams,i) - p->prior[i-2], 2)/pow( p->width[i-2], 2); // correct chi2
-      LC[0] -= 2*log(1.0/(sqrt(2*M_PI)*p->width[i-2]));                                      // compute L^2
+      offset = 2;
+      LC[1] -= pow( gsl_vector_get(bestParams,i) - p->prior[i-offset], 2)/pow( p->width[i-offset], 2); // correct cost
+      LC[0] -= 2*log(1.0/(sqrt(2*M_PI)*p->width[i-offset]));                                           // compute L^2
     }
-  for ( i = p->lt_fitParams->size + 2; i < p->lt_fitParams->size + p->az_fitParams->size + 2; i++ )
+  for ( i = nLT + 2; i < nLT + nAZ + 2; i++ )
     {
-      LC[1] -= pow( gsl_vector_get(bestParams,i) - p->az_prior[i-2], 2)/pow( p->az_width[i-2], 2); // correct chi2
-      LC[0] -= 2*log(1.0/(sqrt(2*M_PI)*p->az_width[i-2]));                                         // compute L^2
+      offset = nLT + 2;
+      LC[1] -= pow( gsl_vector_get(bestParams,i) - p->az_prior[i-offset], 2)/pow( p->az_width[i-offset], 2); // correct cost
+      LC[0] -= 2*log(1.0/(sqrt(2*M_PI)*p->az_width[i-offset]));                                             // compute L^2
     }
-  for ( i = p->lt_fitParams->size + p->az_fitParams->size + 2; i < p->lt_fitParams->size + p->az_fitParams->size + p->t4_fitParams->size + 2; i++ )
+  for ( i = nLT + nAZ + 2; i < nLT + nAZ + nT4 + 2; i++ )
     {
-      LC[1] -= pow( gsl_vector_get(bestParams,i) - p->t4_prior[i-2], 2)/pow( p->t4_width[i-2], 2); // correct chi2
-      LC[0] -= 2*log(1.0/(sqrt(2*M_PI)*p->t4_width[i-2]));                                         // compute L^2
+      offset = nLT + nAZ + 2;
+      LC[1] -= pow( gsl_vector_get(bestParams,i) - p->t4_prior[i-offset], 2)/pow( p->t4_width[i-offset], 2); // correct cost
+      LC[0] -= 2*log(1.0/(sqrt(2*M_PI)*p->t4_width[i-offset]));                                              // compute L^2
     }
-  for ( i = p->lt_fitParams->size + p->az_fitParams->size + p->t4_fitParams->size + 2; i < 2 + p->nParams; i++ )
+  for ( i = nLT + nAZ + nT4 + 2; i < nLT + nAZ + nT4 + nT6 + 2; i++ )
     {
-      LC[1] -= pow( gsl_vector_get(bestParams,i) - p->t6_prior[i-2], 2)/pow( p->t6_width[i-2], 2); // correct chi2
-      LC[0] -= 2*log(1.0/(sqrt(2*M_PI)*p->t6_width[i-2]));                                         // compute L^2
+      offset = nLT + nAZ + nT4 + 2;
+      LC[1] -= pow( gsl_vector_get(bestParams,i) - p->t6_prior[i-offset], 2)/pow( p->t6_width[i-offset], 2); // correct cost
+      LC[0] -= 2*log(1.0/(sqrt(2*M_PI)*p->t6_width[i-offset]));                                              // compute L^2
+    }
+  for ( i = nLT + nAZ + nT4 + nT6 + 2; i < nLT + nAZ + nT4 + nT6 + nT8 + 2; i++ )
+    {
+      offset = nLT + nAZ + nT4 + nT6 + 2;
+      LC[1] -= pow( gsl_vector_get(bestParams,i) - p->t8_prior[i-offset], 2)/pow( p->t8_width[i-offset], 2); // correct cost
+      LC[0] -= 2*log(1.0/(sqrt(2*M_PI)*p->t8_width[i-offset]));                                              // compute L^2
+    }
+  for ( i = nLT + nAZ + nT4 + nT6 + nT8 + 2; i < p->nParams + 2; i++ )
+    {
+      offset = nLT + nAZ + nT4 + nT6 + nT8 + 2;
+      LC[1] -= pow( gsl_vector_get(bestParams,i) - p->t10_prior[i-offset], 2)/pow( p->t10_width[i-offset], 2); // correct cost
+      LC[0] -= 2*log(1.0/(sqrt(2*M_PI)*p->t10_width[i-offset]));                                               // compute L^2
     }
 
   return LC;
@@ -313,7 +397,6 @@ std::vector<double> ell2Chi2(const double chi2FromFit, pdfFitParams_t * p, gsl_v
 
 int main( int argc, char *argv[] )
 {
-
   if ( argc != 18 && argc != 19 )
     {
       std::cout << "Usage: $0 <PDF (0 [QVAL] -or- 1 [QPLUS])> <lt n-jacobi> <az n-jacobi> <Twist-4 n-jacobi> <Twist-6 n-jacobi> <Twist-8 n-jacobi> <Twist-10 n-jacobi> <h5 file> <matelem type - SR/Plat/L-summ> <gauge_configs> <jkStart> <jkEnd> <zmin cut> <zmax cut> <pmin cut> <pmax cut> <Dirac matrix of insertion - Chroma int notation> <h5 for systematic error>" << std::endl;
@@ -349,18 +432,20 @@ int main( int argc, char *argv[] )
   ss << argv[16]; ss >> pmax;          ss.clear(); ss.str(std::string());
   ss << argv[17]; ss >> dirac;         ss.clear(); ss.str(std::string());
 
+  // set dataDim
+  dataDim = (zmax-zmin+1)*(pmax-pmin+1);
 
-  // Kill outright if dirac != 8,11
-  if ( dirac != 8 && dirac != 11 )
+  /*
+    Big switches based on passed current
+  */
+  std::string redstarCurr;
+  if ( dirac == 8 )  redstarCurr = "b_b0xDA__J0_A1pP";
+  else if ( dirac == 11 ) redstarCurr = "a_a1xDA__J1_T1pM";
+  else
     {
       std::cerr << "Insertion Gamma = " << dirac << " not supported";
       exit(4);
     }
-  std::string redstarCurr;
-  if ( dirac == 8 )
-    redstarCurr = "b_b0xDA__J0_A1pP";
-  if ( dirac == 11 )
-    redstarCurr = "a_a1xDA__J1_T1pM";
 
   /*
     Require minimally nParamsLT >= 1
@@ -412,7 +497,7 @@ int main( int argc, char *argv[] )
     ".convolJ.correlated";
 #endif
   output += ".pmin"+std::to_string(pmin)+"_pmax"+std::to_string(pmax)+
-    "_zmin"+std::to_string(zmin)+"_zmax"+std::to_string(zmax)+".alphas_"+std::to_string(alphaS)+".txt";
+    "_zmin"+std::to_string(zmin)+"_zmax"+std::to_string(zmax)+".alphas_"+std::to_string(alphaS)+".scale_"+std::to_string(scale)+"_priors"+".txt";
   std::ofstream OUT(output.c_str(), std::ofstream::in | std::ofstream::app );
   
 
@@ -420,25 +505,30 @@ int main( int argc, char *argv[] )
     INITIALIZE STRUCTURE FOR DISTRIBUTION TO FIT (WHERE DISTRIBUTION IS EITHER ITD OR pITD)
   */
   reducedPITD distribution = reducedPITD(gauge_configs, zmin, zmax, pmin, pmax);
-#warning "Cond"
+#ifdef MATELEMSYSTEMATIC
   reducedPITD distributionSysErr = reducedPITD(gauge_configs, zmin, zmax, pmin, pmax);
+#endif
 
   // Read from H5 file (all z's & p's)
 #ifdef CONVOLC
   H5Read(argv[8],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"itd",dirac); // pitd
+#ifdef MATELEMSYSTEMATIC
   try {
     H5Read(argv[18],&distributionSysErr,gauge_configs,zmin,zmax,pmin,pmax,"itd",dirac); // pitd
   } catch (std::string &e) {
     std::cout << "H5 to estimate sys. error not set ... skipping..." << std::endl;
-  }   
+  }
+#endif
 #endif
 #ifdef CONVOLK
   H5Read(argv[8],&distribution,gauge_configs,zmin,zmax,pmin,pmax,"pitd",dirac);
+#ifdef MATELEMSYSTEMATIC
   try {
     H5Read(argv[18],&distributionSysErr,gauge_configs,zmin,zmax,pmin,pmax,"pitd",dirac);
   } catch (std::string &e) {
     std::cout << "H5 to estimate sys. error not set ... skipping..." << std::endl;
   }
+#endif
 #endif
   
 
@@ -447,8 +537,10 @@ int main( int argc, char *argv[] )
   */
   distribution.calcCov();
   std::cout << "Computed the full data covariance" << std::endl;
+#ifdef MATELEMSYSTEMATIC
   distribution.addSystematicCov(&distributionSysErr);
   std::cout << "Added sys error of matelem to diagonal of data covariance" << std::endl;
+#endif
 
   // distribution.cutOnPZ(zmin,zmax,pmin,pmax);
   distribution.calcInvCov(); std::cout << "Computed the inverse of full data covariance" << std::endl;
@@ -456,9 +548,7 @@ int main( int argc, char *argv[] )
   	    << pmin << " , " << pmax << " }" << std::endl;
 
 
-  int numCut = ( (DATMAXP - pmax) + pmin - 1 )*DATMAXZ + ( (DATMAXZ - zmax) + zmin )*DATMAXP;
-  std::cout << "*** Removed " << numCut << " data points from fit" << std::endl;
-
+  printMat(distribution.data.covR);
 
 #if 0
   std::cout << "Checking suitable inverse was found" << std::endl;
@@ -469,12 +559,155 @@ int main( int argc, char *argv[] )
   exit(8);
 #endif
 
+  /*
+    INITIALIZE THE LOG NORMAL PRIORS
+  */
+  setLogPriors();
+
+
+
+
+  /*
+    OPTIONALLY SCAN THE COST FUNCTION IN {\alpha,\beta} SPACE
+  */
+#if ALPHABETASCAN
+  std::string scanName = redstarCurr+"."+matelemType+
+    "."+std::to_string(nParams)+"-parameter_"+
+    std::to_string(nParamsLT)+"lt_"+std::to_string(nParamsAZ)+"az_"+
+    std::to_string(nParamsT4)+"t4_"+std::to_string(nParamsT6)+"t6_"+
+    std::to_string(nParamsT8)+"t8_"+std::to_string(nParamsT10)+"t10_"+
+    ".convolJ.correlated"+
+    ".pmin"+std::to_string(pmin)+"_pmax"+std::to_string(pmax)+
+    "_zmin"+std::to_string(zmin)+"_zmax"+std::to_string(zmax)+".alphas_"+std::to_string(alphaS)+".scale_"+std::to_string(scale)+"_priors"+".SCAN.txt";
+  std::ofstream scanOUT(scanName.c_str(), std::ofstream::in | std::ofstream::app );
+
+  // for ( int ascan = 1; ascan <= 500; ascan++ )
+  //   {
+  //     for ( int bscan = 1; bscan <= 500; bscan++ )
+  // 	{
+  // 	  double alphaScan = -0.95 + ascan*(2.0/500);
+  // 	  double betaScan  = 0.05 + bscan*(3.5/500);
+  for ( int ascan = 1; ascan < 2; ascan++ )
+    {
+      for ( int bscan = 1; bscan < 2; bscan++ )
+	{
+	  double alphaScan = 0.0;
+	  double betaScan = 3.0;
+	  
+	  gsl_vector * scan = gsl_vector_alloc(2);
+	  gsl_vector_set(scan,0,alphaScan);
+	  gsl_vector_set(scan,1,betaScan);
+
+
+	  int dof;
+	  if ( pdfType == 0 )
+	    dof = distribution.data.covR->size1 - nParams - distribution.data.svsFullR;
+	  if ( pdfType == 1 )
+	    dof = distribution.data.covI->size1 - nParams - distribution.data.svsFullI;
+	  
+	  
+	  double cost = costFunc(scan,&distribution);
+
+
+	  pdfFitParams_t *scanPfp = new pdfFitParams_t(pdfType, alphaScan, betaScan,
+						       scale, dumLTIni,dumAZIni,dumT4Ini,
+						       dumT6Ini,dumT8Ini,dumT10Ini);
+
+	  std::vector<std::pair<int, double> > nuzScan(distribution.data.invCovR->size1);
+	  gsl_vector *scanDataVec = gsl_vector_alloc(distribution.data.invCovR->size1);
+	  
+	  for ( auto z = distribution.data.disps.begin(); z != distribution.data.disps.end(); ++z )
+	    {
+	      zvals scanMoms;
+	      for ( auto m = z->second.moms.begin(); m != z->second.moms.end(); ++m )
+		{
+		  int idx = std::distance(z->second.moms.begin(),m) +
+		    std::distance(distribution.data.disps.begin(),z)*z->second.moms.size();
+
+		  momVals scanVals; scanVals.mat.resize(1);
+		  scanVals.IT     = m->second.IT;
+		  scanVals.mat[0] = m->second.matAvg;
+
+		  nuzScan[idx] = std::make_pair(z->first,scanVals.IT);
+		  if ( pdfType == 0 )
+		    gsl_vector_set(scanDataVec, idx, scanVals.mat[0].real());
+		  if ( pdfType == 1 )
+		    gsl_vector_set(scanDataVec, idx, scanVals.mat[0].imag());
+		} // auto m
+	    } // auto z
+	  
+
+	  varPro scanSoln(nParamsLT, nParamsAZ, nParamsT4, nParamsT6, nParamsT8, nParamsT10,
+			  nuzScan.size(), pdfType);
+	  scanSoln.makeBasis(dirac, gsl_vector_get(scan,0),
+			     gsl_vector_get(scan,1),nuzScan);
+	  if ( pdfType == 0 )
+	    {
+	      scanSoln.makeY(scanDataVec, distribution.data.invCovR, *scanPfp);
+	      scanSoln.makePhi(distribution.data.invCovR, *scanPfp);
+	    }
+	  if ( pdfType == 1 )
+	    {
+	      scanSoln.makeY(scanDataVec, distribution.data.invCovI, *scanPfp);
+	      scanSoln.makePhi(distribution.data.invCovI, *scanPfp);
+	    }
+	  scanSoln.getInvPhi();
+	  gsl_blas_dgemv(CblasNoTrans,1.0,scanSoln.invPhi,scanSoln.Y,0.0,scanSoln.soln);
+	  
+	  gsl_vector *scanFitParams = gsl_vector_alloc(nParams);
+	  gsl_vector_set(scanFitParams,0,gsl_vector_get(scan,0));
+	  gsl_vector_set(scanFitParams,1,gsl_vector_get(scan,1));
+	  for ( int b = 2; b < scanFitParams->size; b++ )
+	    gsl_vector_set(scanFitParams,b,gsl_vector_get(scanSoln.soln,b-2));
+
+
+
+
+	  std::vector<double> scanL2Chi2 = ell2Chi2(cost,scanPfp,scanFitParams,1.0,dataDim);
+
+
+	  scanOUT << "SCAN:: "; // << scanL2Chi2[0]/dof << " " << scanL2Chi2[1]/dof
+		  // << " " << alphaScan << " " << betaScan << "\n";
+	  scanPfp->printBest(scanFitParams);
+
+	  scanPfp->write(scanOUT, scanL2Chi2[0], scanL2Chi2[1], scanL2Chi2[0]/dof,
+			 scanL2Chi2[1]/dof, scanFitParams);
+	  scanOUT.flush();
+	  
+	  gsl_vector_free(scan);
+	}
+    }
+  scanOUT.close();
+
+  if ( pdfType == 0 )
+    {
+      std::cout << "Printing real covariance" << std::endl;
+      printMat(distribution.data.covR);
+    }
+  if ( pdfType == 1 )
+    {
+      std::cout << "Printing imag covariance" << std::endl;
+      printMat(distribution.data.covI);
+    }
+
+
+  distribution.ensemPrintZ(1,0);
+  distribution.ensemPrintZ(2,0);
+  
+
+  exit(30);
+
+#endif
+
+
+
+
 
   /*
     SET THE STARTING PARAMETER VALUES AND INITIAL STEP SIZES ONCE
   */
   gsl_vector *pdfp_ini, *pdfpSteps;
-  pdfFitParams_t *dumPfp;
+  // pdfFitParams_t *dumPfp;
 
   pdfp_ini  = gsl_vector_alloc(2);
   pdfpSteps = gsl_vector_alloc(2);
@@ -497,6 +730,15 @@ int main( int argc, char *argv[] )
     std::cout << "Performing " << nParams << " parameter fit to QPLUS" << std::endl;
 
 
+#if 0
+#warning "Debug crap"
+  for ( int zcheck = 0; zcheck < 9; ++zcheck )
+    {
+      std::cout << "For z = " << zcheck << " here is the ensemble average data with same z:" << std::endl;
+      distribution.ensemPrintZ(zcheck,pdfType);
+    }
+  exit(90);
+#endif
   
   /*
     Collection for the fit results
@@ -514,14 +756,13 @@ int main( int argc, char *argv[] )
 	Set up an instance of pdfFitParams_t struct for fit param printing
 	pass dummy LT, AZ, T4, T6, T8, T10 vectors for pmap member initialization
       */
-      pdfFitParams_t *dumPfp = new pdfFitParams_t(pdfType, 0.05,2.0,dumLTIni,dumAZIni,dumT4Ini,dumT6Ini,dumT8Ini,dumT10Ini);
+      pdfFitParams_t *dumPfp = new pdfFitParams_t(pdfType, -0.3, 0.2, scale, dumLTIni,dumAZIni,dumT4Ini,dumT6Ini,dumT8Ini,dumT10Ini); // 0.05 2.0
       gsl_vector_set(pdfp_ini, 0, dumPfp->alpha); // alpha
       gsl_vector_set(pdfp_ini, 1, dumPfp->beta);  // beta
 
 
       // Time the duration of this fit
       auto jackTimeStart = std::chrono::steady_clock::now();
-
 
       /*
 	BEGIN EXTRACTION OF INFO FOR THIS JACKKNIFE
@@ -530,8 +771,8 @@ int main( int argc, char *argv[] )
       gsl_vector *dataVecJK = gsl_vector_alloc(distribution.data.invCovR->size1);
       // Instantiate a reducedPITD object for this jackknife (only 1cfg)
       reducedPITD thisJack(1, zmin, zmax, pmin, pmax);
-      thisJack.data.invCovR = distribution.data.invCovR;
-      thisJack.data.invCovI = distribution.data.invCovI;
+      gsl_matrix_memcpy(thisJack.data.invCovR,distribution.data.invCovR);
+      gsl_matrix_memcpy(thisJack.data.invCovI,distribution.data.invCovI);
       // Extract
       for ( auto z = distribution.data.disps.begin(); z != distribution.data.disps.end(); ++z )
 	{
@@ -570,23 +811,23 @@ int main( int argc, char *argv[] )
       /*
 	DONE EXTRACTING INFO FOR THIS JACKKNIFE
       */
-    
+
 
   
       // Define the gsl_multimin_function
-      gsl_multimin_function Chi2;
+      gsl_multimin_function Cost;
       // Dimension of the system
-      Chi2.n = pdfp_ini->size;   // (dim = 2, as only alpha/beta are treated w/ nelder-mead)
+      Cost.n = pdfp_ini->size;   // (dim = 2, as only alpha/beta are treated w/ nelder-mead)
       // Function to minimize
-      Chi2.f = &chi2Func;
-      Chi2.params = &thisJack;
+      Cost.f = &costFunc;
+      Cost.params = &thisJack;
   
   
       std::cout << "Establishing initial state for minimizer..." << std::endl;
       // Set the state for the minimizer
       // Repeated call the set function to ensure nelder-mead random minimizer
       // starts w/ a different random simplex for each jackknife sample
-      int status = gsl_multimin_fminimizer_set(fmin,&Chi2,pdfp_ini,pdfpSteps);
+      int status = gsl_multimin_fminimizer_set(fmin,&Cost,pdfp_ini,pdfpSteps);
   
       std::cout << "Minimizer established..." << std::endl;
   
@@ -617,19 +858,31 @@ int main( int argc, char *argv[] )
       gsl_vector *fminBest = gsl_vector_alloc(pdfp_ini->size);
       fminBest = gsl_multimin_fminimizer_x(fmin);
 
-      // Return the best correlated Chi2
-      double chiSq = gsl_multimin_fminimizer_minimum(fmin);
+      // Return the best correlated Cost
+      double cost = gsl_multimin_fminimizer_minimum(fmin);
+      std::cout << "---> THIS Cost = " << cost << std::endl;
       // Determine the reduced chi2
-      double reducedChiSq;
+      double reducedChiSq, detCov;
       int dof;
 
       // [02/16/2021] Replace substraction of singular values, with datapts cut from fit
+      // [06/23/2022] Compute determinant of data covariance
       if ( pdfType == 0 )
-	dof = distribution.data.covR->size1 - nParams - distribution.data.svsFullR;
+	{
+	  dof = distribution.data.covR->size1 - nParams - distribution.data.svsFullR;
+	  detCov = computeDet(distribution.data.covR);
+	}
       if ( pdfType == 1 )
-	dof = distribution.data.covI->size1 - nParams - distribution.data.svsFullI;
+	{
+	  dof = distribution.data.covI->size1 - nParams - distribution.data.svsFullI;
+	  detCov = computeDet(distribution.data.covI);
+	}
+      // detCov = 1.0;
+      std::cout << "DET(COV) = " << detCov << std::endl;
 
-      reducedChiSq = chiSq / dof;
+      // std::cout << " ---> SVS (R,I) = (" << distribution.data.svsFullR << ", " << distribution.data.svsFullI << ")" << std::endl;
+
+      reducedChiSq = cost / dof; // This was formerlly how I computed a figure of merit!
 
 
       /*
@@ -662,7 +915,7 @@ int main( int argc, char *argv[] )
 
 
       // Now use dumPfp to determine the true L^2 and unconstrained chi2
-      std::vector<double> L2Chi2 = ell2Chi2(chiSq,dumPfp,bestFitParams);
+      std::vector<double> L2Chi2 = ell2Chi2(cost,dumPfp,bestFitParams,detCov,dataDim);
 
       std::cout << " For jackknife sample J = " << itJ << ", Converged after " << k
 		<<" iterations, Optimal [L2, Chi2, L2/dof, Chi2/dof] = "
@@ -688,53 +941,14 @@ int main( int argc, char *argv[] )
     } // End loop over jackknife samples
 
 
-#if 0   //#ifdef CONVOLK
-  // Write the pitd->PDF fit results for later plotting
-  reducedPITD pitdPDFFit(gauge_configs);
-  for ( int z = zmin; z <= zmax; z++ )
-    {
-      zvals dumZ;
-      for ( int m = pmin; m <= pmax; m++ )
-	{
-
-	  // A dummy momVals struct to pack
-	  momVals dumM(gauge_configs);
-	  // Fetch the same Ioffe-time from distribution
-	  dumM.IT = distribution.data.disps[z].moms["pz"+std::to_string(m)].IT;
-
-#pragma omp parallel
-#pragma omp for
-	  for ( int j = 0; j < gauge_configs; j++ )
-	    {
-	      // Now evaluate the convolution for this jk's best fit params, for this {nu, z}
-	      double bestMat = convolution( fitResults[j], dumM.IT, z );
-	      if ( pdfType == 0 )
-		dumM.mat[j].real( bestMat );
-	      if ( pdfType == 1 )
-		dumM.mat[j].imag( bestMat );
-	    }
-
-	  std::pair<std::string, momVals> amom ( "pz"+std::to_string(m), dumM );
-
-	  dumZ.moms.insert(amom);
-
-	} // end m
-
-      // Now make/insert the dumZ instance
-      std::pair<int, zvals> az ( z, dumZ );
-      pitdPDFFit.data.disps.insert(az);
-
-    } // end z
-
-
-  /*
-    Now that pitdPDFFit has been populated, used H5Write to write to h5 file
-  */  
-  std::string out_pitdPDFFit = redstarCurr +"." + matelemType + ".pITD-PDF-Fit.h5";
-  char * out_pitdPDFFit_h5 = &out_pitdPDFFit[0];
-  H5Write(out_pitdPDFFit_h5, &pitdPDFFit, gauge_configs, zmin, zmax, pmin, pmax, "pitd_PDF_Fit");
-#endif
-  
+  gsl_vector_free(dumLTIni);
+  gsl_vector_free(dumAZIni);
+  gsl_vector_free(dumT4Ini);
+  gsl_vector_free(dumT6Ini);
+  gsl_vector_free(dumT8Ini);
+  gsl_vector_free(dumT10Ini);
+  gsl_vector_free(pdfp_ini);
+  gsl_vector_free(pdfpSteps);
 
   // Close the output file containing jack fit results
   OUT.close();
