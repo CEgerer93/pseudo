@@ -862,25 +862,33 @@ int main( int argc, char *argv[] )
       double cost = gsl_multimin_fminimizer_minimum(fmin);
       std::cout << "---> THIS Cost = " << cost << std::endl;
       // Determine the reduced chi2
-      double reducedChiSq, detCov;
+      double reducedChiSq;
       int dof;
+
+#ifdef DETCOV_IN_L2
+      double detCov;
+#endif
 
       // [02/16/2021] Replace substraction of singular values, with datapts cut from fit
       // [06/23/2022] Compute determinant of data covariance
       if ( pdfType == 0 )
 	{
 	  dof = distribution.data.covR->size1 - nParams - distribution.data.svsFullR;
+#ifdef DETCOV_IN_L2
 	  detCov = computeDet(distribution.data.covR);
+#endif
 	}
       if ( pdfType == 1 )
 	{
 	  dof = distribution.data.covI->size1 - nParams - distribution.data.svsFullI;
+#ifdef DETCOV_IN_L2
 	  detCov = computeDet(distribution.data.covI);
+#endif
 	}
-      // detCov = 1.0;
+#ifdef DETCOV_IN_L2
       std::cout << "DET(COV) = " << detCov << std::endl;
+#endif
 
-      // std::cout << " ---> SVS (R,I) = (" << distribution.data.svsFullR << ", " << distribution.data.svsFullI << ")" << std::endl;
 
       reducedChiSq = cost / dof; // This was formerlly how I computed a figure of merit!
 
@@ -915,7 +923,11 @@ int main( int argc, char *argv[] )
 
 
       // Now use dumPfp to determine the true L^2 and unconstrained chi2
+#ifdef DETCOV_IN_L2
       std::vector<double> L2Chi2 = ell2Chi2(cost,dumPfp,bestFitParams,detCov,dataDim);
+#else
+      std::vector<double> L2Chi2 = ell2Chi2(cost,dumPfp,bestFitParams,1.0,1);
+#endif
 
       std::cout << " For jackknife sample J = " << itJ << ", Converged after " << k
 		<<" iterations, Optimal [L2, Chi2, L2/dof, Chi2/dof] = "
