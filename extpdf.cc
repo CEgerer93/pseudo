@@ -85,7 +85,7 @@ void setLogPriors()
   for ( int n = 0; n < logPriors.size(); ++n )
     {
       nlPriors.push_back( log( ( pow(logPriors[n]-logLowBound[n],2) )/sqrt(pow(logPriors[n]-logLowBound[n],2)+pow(logWidths[n],2)) ) );
-      nlWidths.push_back( log( 1 + pow(logWidths[n],2)/pow(logPriors[n]-logLowBound[n],2) ) );
+      nlWidths.push_back( sqrt( log( 1 + pow(logWidths[n],2)/pow(logPriors[n]-logLowBound[n],2) ) ) );
     }
 }
 
@@ -275,8 +275,11 @@ double costFunc(const gsl_vector * x, void *data)
 #ifdef CONSTRAINED
   // Log-normal on alpha, beta
   // chi2 += (pow( (log(dumA - alpha0) - nlPriors[0]), 2))/pow(nlWidths[0],2) + (pow( (log(dumB - beta0) - nlPriors[1]), 2))/pow(nlWidths[1],2); # PREVIOUS COST
-  chi2 += (pow( (log(dumA - alpha0) - nlPriors[0]), 2))/pow(nlWidths[0],2) + (pow( (log(dumB - beta0) - nlPriors[1]), 2))/pow(nlWidths[1],2)
-    -2*( log(1.0/((dumA-alpha0)*nlWidths[0]*sqrt(2*M_PI))) + log(1.0/((dumB-beta0)*nlWidths[1]*sqrt(2*M_PI))) );
+  chi2 += (pow( (log(dumA - alpha0) - nlPriors[0]), 2))/pow(nlWidths[0],2) + (pow( (log(dumB - beta0) - nlPriors[1]), 2))/pow(nlWidths[1],2);
+
+    // -2*( log(1.0/((dumA-alpha0)*nlWidths[0]*sqrt(2*M_PI))) + log(1.0/((dumB-beta0)*nlWidths[1]*sqrt(2*M_PI))) );
+  // MAYBE INCLUDING NORM OF LOG-NORMAL DISTS IN COST IS WHAT'S KILLING ME HERE!?!?!?!?!?
+
   // A const piece remains from VarPro w/ priors
   for ( int c = 0; c < VP.numCorrections; c++ )
     {
@@ -350,7 +353,9 @@ std::vector<double> ell2Chi2(const double costFromFit, pdfFitParams_t * p, gsl_v
 
   // Next, remove prior infomation on \alpha, \beta from cost
   LC[1] -= ( pow( log(alpha-alpha0)-nlPriors[0], 2)/pow(nlWidths[0], 2) + pow( log(beta-beta0)-nlPriors[1], 2)/pow(nlWidths[1], 2) );
-  LC[1] += 2*( log(1.0/((alpha-alpha0)*nlWidths[0]*sqrt(2*M_PI))) + log(1.0/((beta-beta0)*nlWidths[1]*sqrt(2*M_PI))) );
+
+  // LC[1] += 2*( log(1.0/((alpha-alpha0)*nlWidths[0]*sqrt(2*M_PI))) + log(1.0/((beta-beta0)*nlWidths[1]*sqrt(2*M_PI))) ); // MAYBE NORM OF LOG-NORMAL DISTS IS KILLING ME HERE
+  LC[0] -= 2*( log(1.0/((alpha-alpha0)*nlWidths[0]*sqrt(2*M_PI))) + log(1.0/((beta-beta0)*nlWidths[1]*sqrt(2*M_PI))) );
 
   // Arrive at final talley for L^2 and unconstrained chi2 by accounting for Gaussian priors of linear Jacobi coeffs.
   int i, offset;
@@ -736,6 +741,7 @@ int main( int argc, char *argv[] )
     {
       std::cout << "For z = " << zcheck << " here is the ensemble average data with same z:" << std::endl;
       distribution.ensemPrintZ(zcheck,pdfType);
+      distribution.viewZCovMat(zcheck);
     }
   exit(90);
 #endif
@@ -943,6 +949,7 @@ int main( int argc, char *argv[] )
       OUT.flush();
 
       // delete best;
+      delete dumPfp;
       
       // Determine/print the total time for this fit
       auto jackTimeEnd = std::chrono::steady_clock::now();
