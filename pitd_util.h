@@ -127,12 +127,12 @@ namespace PITD
 	data.invCovR = gsl_matrix_calloc(numPZ,numPZ);
 	data.invCovI = gsl_matrix_calloc(numPZ,numPZ);
       }
-    // Destructor
-    virtual ~reducedPITD()
-      {
-	gsl_matrix_free(data.covR); gsl_matrix_free(data.covI);
-	gsl_matrix_free(data.invCovR); gsl_matrix_free(data.invCovI);
-      };
+    /* // Destructor */
+    /* virtual ~reducedPITD() */
+    /*   { */
+    /* 	gsl_matrix_free(data.covR); gsl_matrix_free(data.covI); */
+    /* 	gsl_matrix_free(data.invCovR); gsl_matrix_free(data.invCovI); */
+    /*   }; */
 #warning "FIX ME - Need a suitable destructor for pitdEvo case, wherein gsl_matrices are not allocated!"
     /* virtual ~reducedPITD() {}  */
 

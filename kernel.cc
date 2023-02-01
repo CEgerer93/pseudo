@@ -255,8 +255,8 @@ namespace PITD
     if ( dirac == 8 )
       return 2*( sum + sum2 + 1.0/2 - 1.0/((n+1)*(n+2)) );
     else if ( dirac == 11 )
-      // return 2*( sum + 1 - (2.0/((n+1)*(n+2))) + sum2 ); // If we are not separating Y & R amplitudes
-      return 2*( sum + sum2 + 1.0/2 - 1.0/((n+1)*(n+2)) ); // If we are separating Y from R
+      return 2*( sum + 1 - (2.0/((n+1)*(n+2))) + sum2 ); // If we are not separating Y & R amplitudes
+      // return 2*( sum + sum2 + 1.0/2 - 1.0/((n+1)*(n+2)) ); // If we are separating Y from R
     else {
       std::cerr << "Insertion Gamma = " << dirac << " not supported";
       exit(4);
